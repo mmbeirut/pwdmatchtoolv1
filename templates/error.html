@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Error - PWD Match Tool v5{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Application Error</h4>
+            </div>
+            <div class="card-body">
+                <p class="lead">We're sorry, but an error occurred while loading the application.</p>
+                <div class="alert alert-danger">
+                    <strong>Error Details:</strong> {{ error }}
+                </div>
+                <p>Please try the following:</p>
+                <ul>
+                    <li>Refresh the page</li>
+                    <li>Check your network connection</li>
+                    <li>Verify the database connection is working</li>
+                    <li>Contact the system administrator if the problem persists</li>
+                </ul>
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <i class="bi bi-arrow-clockwise"></i> Try Again
+                    </a>
+                    <a href="{{ url_for('health_check') }}" class="btn btn-outline-secondary" target="_blank">
+                        <i class="bi bi-heart-pulse"></i> Check System Status
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
