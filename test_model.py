@@ -26,7 +26,7 @@ def test_model():
                                   cache_folder=cache_dir,
                                   device='cpu')
         
-        print("✓ Model loaded successfully!")
+        print("Model loaded successfully!")
         
         # Test encoding
         test_sentences = [
