@@ -39,10 +39,39 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-produ
 model = None
 if SENTENCE_TRANSFORMERS_AVAILABLE:
     try:
-        model = SentenceTransformer('all-MiniLM-L6-v2')
+        # Try to load model with SSL verification disabled if needed
+        import ssl
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        # Create SSL context that doesn't verify certificates
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
+        # Try different models in order of preference
+        model_names = [
+            'all-MiniLM-L6-v2',
+            'paraphrase-MiniLM-L6-v2',
+            'all-mpnet-base-v2'
+        ]
+        
+        model = None
+        for model_name in model_names:
+            try:
+                model = SentenceTransformer(model_name)
+                logger.info(f"Successfully loaded model: {model_name}")
+                break
+            except Exception as model_error:
+                logger.warning(f"Failed to load {model_name}: {model_error}")
+                continue
+        
+        if model is None:
+            raise Exception("No sentence transformer models could be loaded")
         logger.info("Sentence transformer model loaded successfully")
     except Exception as e:
         logger.error(f"Failed to load sentence transformer model: {e}")
+        logger.info("Falling back to basic text matching")
         model = None
 else:
     logger.info("Using basic text matching (sentence transformers not available)")
