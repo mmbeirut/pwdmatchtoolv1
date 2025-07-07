@@ -189,8 +189,8 @@ class DatabaseManager:
         try:
             engine = self.get_engine()
             
-            # Base query - filter for certified PWDs only
-            query = f"SELECT * FROM [{TABLE_NAME}] WHERE [Case Status] = 'Certified'"
+            # Base query - no case status filter
+            query = f"SELECT * FROM [{TABLE_NAME}]"
             
             # Log the base query
             logger.info(f"Base query: {query}")
@@ -211,8 +211,12 @@ class DatabaseManager:
                     title_list = "', '".join(filters['job_titles'])
                     filter_conditions.append(f"[F.a.1] IN ('{title_list}')")
                 
+                if filters.get('case_statuses'):
+                    status_list = "', '".join(filters['case_statuses'])
+                    filter_conditions.append(f"[Case Status] IN ('{status_list}')")
+                
                 if filter_conditions:
-                    query += " AND " + " AND ".join(filter_conditions)
+                    query += " WHERE " + " AND ".join(filter_conditions)
                     logger.info(f"Query with filters: {query}")
             
             # Execute query and log results
@@ -239,22 +243,27 @@ class DatabaseManager:
         try:
             engine = self.get_engine()
             
-            # Get unique companies from certified PWDs only
-            companies_query = f"SELECT DISTINCT [C.1] as company FROM [{TABLE_NAME}] WHERE [C.1] IS NOT NULL AND [Case Status] = 'Certified' ORDER BY [C.1]"
+            # Get unique companies
+            companies_query = f"SELECT DISTINCT [C.1] as company FROM [{TABLE_NAME}] WHERE [C.1] IS NOT NULL ORDER BY [C.1]"
             companies = pd.read_sql(companies_query, engine)['company'].tolist()
             
-            # Get unique locations from certified PWDs only
-            locations_query = f"SELECT DISTINCT [F.e.1] as location FROM [{TABLE_NAME}] WHERE [F.e.1] IS NOT NULL AND [Case Status] = 'Certified' ORDER BY [F.e.1]"
+            # Get unique locations
+            locations_query = f"SELECT DISTINCT [F.e.1] as location FROM [{TABLE_NAME}] WHERE [F.e.1] IS NOT NULL ORDER BY [F.e.1]"
             locations = pd.read_sql(locations_query, engine)['location'].tolist()
             
-            # Get unique job titles from certified PWDs only
-            titles_query = f"SELECT DISTINCT [F.a.1] as title FROM [{TABLE_NAME}] WHERE [F.a.1] IS NOT NULL AND [Case Status] = 'Certified' ORDER BY [F.a.1]"
+            # Get unique job titles
+            titles_query = f"SELECT DISTINCT [F.a.1] as title FROM [{TABLE_NAME}] WHERE [F.a.1] IS NOT NULL ORDER BY [F.a.1]"
             titles = pd.read_sql(titles_query, engine)['title'].tolist()
+            
+            # Get unique case statuses
+            statuses_query = f"SELECT DISTINCT [Case Status] as status FROM [{TABLE_NAME}] WHERE [Case Status] IS NOT NULL ORDER BY [Case Status]"
+            statuses = pd.read_sql(statuses_query, engine)['status'].tolist()
             
             return {
                 'companies': companies,
                 'locations': locations,
-                'job_titles': titles
+                'job_titles': titles,
+                'case_statuses': statuses
             }
             
         except Exception as e:
@@ -319,7 +328,8 @@ class PWDMatcher:
                 'experience_required': pwd.get('F.b.4.a', ''),
                 'similarity_score': similarity_score,
                 'match_strength': match_strength,
-                'wage_info': self._get_wage_info(pwd)
+                'wage_info': self._get_wage_info(pwd),
+                'case_status': pwd.get('Case Status', '')
             })
         
         # Sort by similarity score (highest first)
@@ -356,7 +366,8 @@ class PWDMatcher:
                 'experience_required': pwd.get('F.b.4.a', ''),
                 'similarity_score': similarity_score,
                 'match_strength': match_strength,
-                'wage_info': self._get_wage_info(pwd)
+                'wage_info': self._get_wage_info(pwd),
+                'case_status': pwd.get('Case Status', '')
             })
         
         # Sort by similarity score (highest first)
@@ -498,7 +509,8 @@ def search_pwds():
         filters = {
             'companies': request.form.getlist('filter_companies'),
             'locations': request.form.getlist('filter_locations'),
-            'job_titles': request.form.getlist('filter_job_titles')
+            'job_titles': request.form.getlist('filter_job_titles'),
+            'case_statuses': request.form.getlist('filter_case_statuses')
         }
         
         # Remove empty filters
@@ -518,7 +530,7 @@ def search_pwds():
             return jsonify({
                 'success': True,
                 'results': [],
-                'message': f'No certified PWD records found matching your criteria. Total certified PWDs in database: {len(all_records)}'
+                'message': f'No PWD records found matching your criteria. Total PWDs in database: {len(all_records)}'
             })
         
         # Calculate similarities
@@ -535,7 +547,8 @@ def search_pwds():
                     'job_location': pwd.get('F.e.1', ''),
                     'job_description': pwd.get('F.a.2', ''),
                     'similarity_score': 0.5,
-                    'match_strength': 'Unknown'
+                    'match_strength': 'Unknown',
+                    'case_status': pwd.get('Case Status', '')
                 })
         
         logger.info(f"Returning {len(results)} results")
@@ -588,10 +601,10 @@ def debug_data():
         status_query = f"SELECT DISTINCT [Case Status], COUNT(*) as count FROM [{TABLE_NAME}] GROUP BY [Case Status]"
         status_result = pd.read_sql(status_query, engine)
         
-        # Check certified records
-        certified_query = f"SELECT COUNT(*) as certified FROM [{TABLE_NAME}] WHERE [Case Status] = 'Certified'"
-        certified_result = pd.read_sql(certified_query, engine)
-        certified_records = certified_result['certified'].iloc[0]
+        # Check determination issued records
+        determination_query = f"SELECT COUNT(*) as determination FROM [{TABLE_NAME}] WHERE [Case Status] = 'Determination Issued'"
+        determination_result = pd.read_sql(determination_query, engine)
+        determination_records = determination_result['determination'].iloc[0]
         
         # Check for specific company (without case status filter)
         aecom_query = f"SELECT COUNT(*) as aecom FROM [{TABLE_NAME}] WHERE [C.1] LIKE '%AECOM%'"
@@ -609,7 +622,7 @@ def debug_data():
         
         return jsonify({
             'total_records': int(total_records),
-            'certified_records': int(certified_records),
+            'determination_records': int(determination_records),
             'aecom_records': int(aecom_records),
             'civil_engineering_records': int(civil_eng_records),
             'case_status_values': status_result.to_dict('records'),
