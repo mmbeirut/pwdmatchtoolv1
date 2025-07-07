@@ -21,10 +21,34 @@ def test_model():
         print(f"Cache directory: {cache_dir}")
         print(f"Offline mode: {os.environ.get('TRANSFORMERS_OFFLINE', 'not set')}")
         
-        # Try to load model
-        model = SentenceTransformer('all-MiniLM-L6-v2', 
-                                  cache_folder=cache_dir,
-                                  device='cpu')
+        # Try to load model from multiple locations
+        model = None
+        model_loaded = False
+        
+        # 1. Try loading from local model directory
+        local_model_path = os.path.join(os.getcwd(), 'local_model')
+        if os.path.exists(local_model_path):
+            try:
+                model = SentenceTransformer(local_model_path, device='cpu')
+                print(f"Model loaded from local directory: {local_model_path}")
+                model_loaded = True
+            except Exception as local_error:
+                print(f"Failed to load from local directory: {local_error}")
+        
+        # 2. Try loading from cache
+        if not model_loaded:
+            try:
+                model = SentenceTransformer('all-MiniLM-L6-v2', 
+                                          cache_folder=cache_dir,
+                                          device='cpu',
+                                          local_files_only=True)
+                print("Model loaded from cache")
+                model_loaded = True
+            except Exception as cache_error:
+                print(f"Failed to load from cache: {cache_error}")
+        
+        if not model_loaded:
+            raise Exception("No model found. Please download manually or run download_model.py")
         
         print("Model loaded successfully!")
         

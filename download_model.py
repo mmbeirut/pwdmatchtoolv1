@@ -86,8 +86,24 @@ def download_model():
             
         except Exception as e2:
             print(f"Alternative method also failed: {e2}")
-            print("\nPlease check your internet connection or try running the app anyway.")
-            print("The app will fall back to basic text matching if the model isn't available.")
+            print("\n" + "="*60)
+            print("MANUAL DOWNLOAD INSTRUCTIONS:")
+            print("="*60)
+            print("1. Go to: https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2")
+            print("2. Click 'Files and versions' tab")
+            print("3. Download these files to a 'local_model' folder:")
+            print("   - config.json")
+            print("   - pytorch_model.bin")
+            print("   - tokenizer.json")
+            print("   - tokenizer_config.json")
+            print("   - vocab.txt")
+            print("   - modules.json")
+            print("   - sentence_bert_config.json")
+            print("4. Create folder structure:")
+            print(f"   {os.getcwd()}\\local_model\\")
+            print("5. Place all downloaded files in the local_model folder")
+            print("6. Run the application - it will automatically detect the local model")
+            print("="*60)
             return False
 
 if __name__ == "__main__":

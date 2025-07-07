@@ -83,17 +83,49 @@ if SENTENCE_TRANSFORMERS_AVAILABLE:
         logger.info("Attempting to load sentence transformer model in offline mode...")
         
         try:
-            # First try to load from local cache in offline mode
-            model = SentenceTransformer('all-MiniLM-L6-v2', 
-                                      cache_folder=cache_dir,
-                                      device='cpu',
-                                      local_files_only=True)
-            logger.info("Successfully loaded sentence transformer model from cache: all-MiniLM-L6-v2")
+            # Try multiple model loading approaches
+            model_loaded = False
             
-        except Exception as e1:
-            logger.warning(f"Offline loading failed: {e1}")
-            logger.info("Model not found in cache. Please run 'python download_model.py' first.")
-            raise Exception("Model not available in cache. Run download_model.py first.")
+            # 1. Try loading from local model directory
+            local_model_path = os.path.join(os.getcwd(), 'local_model')
+            if os.path.exists(local_model_path):
+                try:
+                    model = SentenceTransformer(local_model_path, device='cpu')
+                    logger.info(f"Successfully loaded model from local directory: {local_model_path}")
+                    model_loaded = True
+                except Exception as local_error:
+                    logger.warning(f"Failed to load from local directory: {local_error}")
+            
+            # 2. Try loading from cache in offline mode
+            if not model_loaded:
+                try:
+                    model = SentenceTransformer('all-MiniLM-L6-v2', 
+                                              cache_folder=cache_dir,
+                                              device='cpu',
+                                              local_files_only=True)
+                    logger.info("Successfully loaded sentence transformer model from cache: all-MiniLM-L6-v2")
+                    model_loaded = True
+                except Exception as cache_error:
+                    logger.warning(f"Cache loading failed: {cache_error}")
+            
+            # 3. Try loading from Hugging Face cache directory
+            if not model_loaded:
+                hf_cache_path = os.path.expanduser("~/.cache/huggingface/transformers")
+                if os.path.exists(hf_cache_path):
+                    try:
+                        # Look for cached model directories
+                        for item in os.listdir(hf_cache_path):
+                            if 'all-minilm-l6-v2' in item.lower():
+                                cached_model_path = os.path.join(hf_cache_path, item)
+                                model = SentenceTransformer(cached_model_path, device='cpu')
+                                logger.info(f"Successfully loaded model from HF cache: {cached_model_path}")
+                                model_loaded = True
+                                break
+                    except Exception as hf_error:
+                        logger.warning(f"HF cache loading failed: {hf_error}")
+            
+            if not model_loaded:
+                raise Exception("No local model found. Please download model manually.")
         
     except Exception as e:
         logger.error(f"All sentence transformer loading attempts failed: {e}")
