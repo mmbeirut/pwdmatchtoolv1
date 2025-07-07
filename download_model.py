@@ -19,6 +19,11 @@ def setup_ssl_bypass():
     os.environ['REQUESTS_CA_BUNDLE'] = ''
     os.environ['SSL_VERIFY'] = 'false'
     
+    # Disable offline mode for downloading
+    os.environ['TRANSFORMERS_OFFLINE'] = '0'
+    os.environ['HF_HUB_OFFLINE'] = '0'
+    os.environ['HF_HUB_DISABLE_TELEMETRY'] = '1'
+    
     # Monkey patch requests to disable SSL verification globally
     original_request = requests.Session.request
     def patched_request(self, method, url, **kwargs):

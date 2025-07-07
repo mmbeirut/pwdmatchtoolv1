@@ -77,41 +77,39 @@ if SENTENCE_TRANSFORMERS_AVAILABLE:
         
         # Set HuggingFace environment variables for offline mode
         os.environ['HF_HUB_DISABLE_TELEMETRY'] = '1'
-        os.environ['TRANSFORMERS_OFFLINE'] = '0'  # Allow online but with SSL disabled
+        os.environ['TRANSFORMERS_OFFLINE'] = '1'  # Use offline mode to avoid SSL issues
+        os.environ['HF_HUB_OFFLINE'] = '1'  # Also set hub offline mode
         
-        logger.info("Attempting to load sentence transformer model with SSL bypass...")
+        logger.info("Attempting to load sentence transformer model in offline mode...")
         
         try:
+            # First try to load from local cache in offline mode
             model = SentenceTransformer('all-MiniLM-L6-v2', 
                                       cache_folder=cache_dir,
-                                      trust_remote_code=True,
                                       device='cpu')
-            logger.info("Successfully loaded sentence transformer model: all-MiniLM-L6-v2")
+            logger.info("Successfully loaded sentence transformer model from cache: all-MiniLM-L6-v2")
             
         except Exception as e1:
-            logger.warning(f"First attempt failed: {e1}")
+            logger.warning(f"Offline loading failed: {e1}")
+            logger.info("Attempting online download with SSL bypass...")
             
-            # Try alternative model names
-            alternative_models = [
-                'sentence-transformers/all-MiniLM-L6-v2',
-                'microsoft/DialoGPT-medium',  # Fallback model
-                'distilbert-base-uncased'     # Another fallback
-            ]
+            # Temporarily disable offline mode for download
+            os.environ['TRANSFORMERS_OFFLINE'] = '0'
+            os.environ['HF_HUB_OFFLINE'] = '0'
             
-            for alt_model in alternative_models:
-                try:
-                    logger.info(f"Trying alternative model: {alt_model}")
-                    model = SentenceTransformer(alt_model, 
-                                              cache_folder=cache_dir,
-                                              trust_remote_code=True,
-                                              device='cpu')
-                    logger.info(f"Successfully loaded alternative model: {alt_model}")
-                    break
-                except Exception as alt_error:
-                    logger.warning(f"Alternative model {alt_model} failed: {alt_error}")
-                    continue
-            
-            if model is None:
+            try:
+                model = SentenceTransformer('all-MiniLM-L6-v2', 
+                                          cache_folder=cache_dir,
+                                          trust_remote_code=True,
+                                          device='cpu')
+                logger.info("Successfully downloaded and loaded sentence transformer model")
+                
+                # Re-enable offline mode for future use
+                os.environ['TRANSFORMERS_OFFLINE'] = '1'
+                os.environ['HF_HUB_OFFLINE'] = '1'
+                
+            except Exception as e2:
+                logger.error(f"Online download also failed: {e2}")
                 raise Exception("All model loading attempts failed")
         
     except Exception as e:
