@@ -189,8 +189,8 @@ class DatabaseManager:
         try:
             engine = self.get_engine()
             
-            # Base query - temporarily remove case status filter to see all data
-            query = f"SELECT * FROM [{TABLE_NAME}]"
+            # Base query - filter for certified PWDs only
+            query = f"SELECT * FROM [{TABLE_NAME}] WHERE [Case Status] = 'Certified'"
             
             # Log the base query
             logger.info(f"Base query: {query}")
@@ -212,7 +212,7 @@ class DatabaseManager:
                     filter_conditions.append(f"[F.a.1] IN ('{title_list}')")
                 
                 if filter_conditions:
-                    query += " WHERE " + " AND ".join(filter_conditions)
+                    query += " AND " + " AND ".join(filter_conditions)
                     logger.info(f"Query with filters: {query}")
             
             # Execute query and log results
@@ -239,16 +239,16 @@ class DatabaseManager:
         try:
             engine = self.get_engine()
             
-            # Get unique companies (remove case status filter temporarily)
-            companies_query = f"SELECT DISTINCT [C.1] as company FROM [{TABLE_NAME}] WHERE [C.1] IS NOT NULL ORDER BY [C.1]"
+            # Get unique companies from certified PWDs only
+            companies_query = f"SELECT DISTINCT [C.1] as company FROM [{TABLE_NAME}] WHERE [C.1] IS NOT NULL AND [Case Status] = 'Certified' ORDER BY [C.1]"
             companies = pd.read_sql(companies_query, engine)['company'].tolist()
             
-            # Get unique locations
-            locations_query = f"SELECT DISTINCT [F.e.1] as location FROM [{TABLE_NAME}] WHERE [F.e.1] IS NOT NULL ORDER BY [F.e.1]"
+            # Get unique locations from certified PWDs only
+            locations_query = f"SELECT DISTINCT [F.e.1] as location FROM [{TABLE_NAME}] WHERE [F.e.1] IS NOT NULL AND [Case Status] = 'Certified' ORDER BY [F.e.1]"
             locations = pd.read_sql(locations_query, engine)['location'].tolist()
             
-            # Get unique job titles
-            titles_query = f"SELECT DISTINCT [F.a.1] as title FROM [{TABLE_NAME}] WHERE [F.a.1] IS NOT NULL ORDER BY [F.a.1]"
+            # Get unique job titles from certified PWDs only
+            titles_query = f"SELECT DISTINCT [F.a.1] as title FROM [{TABLE_NAME}] WHERE [F.a.1] IS NOT NULL AND [Case Status] = 'Certified' ORDER BY [F.a.1]"
             titles = pd.read_sql(titles_query, engine)['title'].tolist()
             
             return {
@@ -518,7 +518,7 @@ def search_pwds():
             return jsonify({
                 'success': True,
                 'results': [],
-                'message': f'No PWD records found matching your criteria. Total certified PWDs in database: {len(all_records)}'
+                'message': f'No certified PWD records found matching your criteria. Total certified PWDs in database: {len(all_records)}'
             })
         
         # Calculate similarities
