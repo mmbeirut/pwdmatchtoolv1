@@ -35,14 +35,26 @@ An interactive web application for immigration law firms to compare job descript
    pip install -r requirements.txt
    ```
 
-3. **Verify database access**:
+3. **Download the AI model** (choose one method):
+   
+   **Method A - Automatic download** (may fail due to SSL issues):
+   ```cmd
+   python download_model.py
+   ```
+   
+   **Method B - Manual download** (recommended if Method A fails):
+   - Follow the detailed instructions in the Troubleshooting section below
+   - Or see `manual_download_instructions.md`
+
+4. **Verify database access**:
    - Ensure you have access to server: `agd-vtanc-2016`
    - Database: `ImmApps`
    - Table: `DOL_9141_form_20260731_allClients`
    - Trusted connection should work with your Windows credentials
 
-4. **Test the installation**:
+5. **Test the installation**:
    ```cmd
+   python test_model.py
    python app.py
    ```
 
@@ -132,6 +144,47 @@ The application uses the `all-MiniLM-L6-v2` sentence transformer model for seman
 - First run may take time to download the AI model
 - Ensure internet connection for initial model download
 - Check available disk space (model requires ~100MB)
+
+#### Manual Model Download (if automatic download fails)
+If you get SSL certificate errors or "missing word_embedding_dimension" errors:
+
+1. **Download all required files** from https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2:
+   - `config.json`
+   - `pytorch_model.bin` (~90MB)
+   - `tokenizer.json`
+   - `tokenizer_config.json`
+   - `vocab.txt`
+   - `modules.json`
+   - `sentence_bert_config.json`
+   - **CRITICAL**: `1_Pooling/config.json` (from the 1_Pooling folder)
+
+2. **Create the correct folder structure**:
+   ```
+   PWDMatchToolv5/
+   ├── local_model/
+   │   ├── 1_Pooling/
+   │   │   └── config.json  ← This file is critical!
+   │   ├── config.json
+   │   ├── pytorch_model.bin
+   │   ├── tokenizer.json
+   │   ├── tokenizer_config.json
+   │   ├── vocab.txt
+   │   ├── modules.json
+   │   └── sentence_bert_config.json
+   ```
+
+3. **Test the model**:
+   ```cmd
+   python test_model.py
+   ```
+
+4. **Common errors and solutions**:
+   - `Pooling.__init__() missing 1 required positional argument: 'word_embedding_dimension'`
+     → Missing `1_Pooling/config.json` file
+   - `No sentence-transformers model found`
+     → Missing `modules.json` or `sentence_bert_config.json`
+   - `Cannot load tokenizer`
+     → Missing tokenizer files (`tokenizer.json`, `tokenizer_config.json`, `vocab.txt`)
 
 ### Performance Issues
 - Large result sets are limited to top 50 matches
