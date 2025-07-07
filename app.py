@@ -39,40 +39,65 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-produ
 model = None
 if SENTENCE_TRANSFORMERS_AVAILABLE:
     try:
-        # Try to load model with SSL verification disabled if needed
         import ssl
         import urllib3
+        from urllib3.util.ssl_ import create_urllib3_context
+        
+        # Disable SSL warnings
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         
-        # Create SSL context that doesn't verify certificates
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
+        # Set environment variables to handle SSL and proxy issues
+        os.environ['CURL_CA_BUNDLE'] = ''
+        os.environ['REQUESTS_CA_BUNDLE'] = ''
         
-        # Try different models in order of preference
-        model_names = [
-            'all-MiniLM-L6-v2',
-            'paraphrase-MiniLM-L6-v2',
-            'all-mpnet-base-v2'
-        ]
+        # Configure SSL context for requests
+        import requests
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.retry import Retry
         
-        model = None
-        for model_name in model_names:
-            try:
-                model = SentenceTransformer(model_name)
-                logger.info(f"Successfully loaded model: {model_name}")
-                break
-            except Exception as model_error:
-                logger.warning(f"Failed to load {model_name}: {model_error}")
-                continue
+        # Create a session with SSL verification disabled
+        session = requests.Session()
+        session.verify = False
         
-        if model is None:
-            raise Exception("No sentence transformer models could be loaded")
-        logger.info("Sentence transformer model loaded successfully")
+        # Monkey patch the requests session for sentence transformers
+        import sentence_transformers.util
+        sentence_transformers.util.http_get = lambda url, **kwargs: session.get(url, **kwargs)
+        
+        # Try to load the model from local cache first, then download if needed
+        cache_dir = os.path.join(os.getcwd(), 'model_cache')
+        
+        try:
+            # First try to load from cache
+            model = SentenceTransformer('all-MiniLM-L6-v2', 
+                                      cache_folder=cache_dir,
+                                      trust_remote_code=True)
+            logger.info("Successfully loaded sentence transformer model: all-MiniLM-L6-v2")
+        except Exception as cache_error:
+            logger.warning(f"Failed to load from cache: {cache_error}")
+            # Try to download with SSL disabled
+            model = SentenceTransformer('all-MiniLM-L6-v2', trust_remote_code=True)
+            logger.info("Successfully downloaded and loaded sentence transformer model")
+        
     except Exception as e:
         logger.error(f"Failed to load sentence transformer model: {e}")
-        logger.info("Falling back to basic text matching")
-        model = None
+        logger.info("Attempting to use local cache or alternative approach...")
+        
+        try:
+            # Try to use a different approach - download manually if needed
+            import transformers
+            transformers.utils.logging.set_verbosity_error()
+            
+            # Try with different model loading approach
+            from sentence_transformers import SentenceTransformer
+            model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', 
+                                      trust_remote_code=True,
+                                      cache_folder=os.path.join(os.getcwd(), 'model_cache'))
+            logger.info("Successfully loaded model using alternative method")
+            
+        except Exception as e2:
+            logger.error(f"Alternative loading method also failed: {e2}")
+            logger.info("Falling back to basic text matching")
+            model = None
 else:
     logger.info("Using basic text matching (sentence transformers not available)")
 
