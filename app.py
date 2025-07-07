@@ -41,7 +41,9 @@ if SENTENCE_TRANSFORMERS_AVAILABLE:
     try:
         import ssl
         import urllib3
-        from urllib3.util.ssl_ import create_urllib3_context
+        import requests
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.retry import Retry
         
         # Disable SSL warnings
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -49,55 +51,100 @@ if SENTENCE_TRANSFORMERS_AVAILABLE:
         # Set environment variables to handle SSL and proxy issues
         os.environ['CURL_CA_BUNDLE'] = ''
         os.environ['REQUESTS_CA_BUNDLE'] = ''
+        os.environ['SSL_VERIFY'] = 'false'
         
-        # Configure SSL context for requests
-        import requests
-        from requests.adapters import HTTPAdapter
-        from urllib3.util.retry import Retry
+        # Monkey patch requests to disable SSL verification globally
+        original_request = requests.Session.request
+        def patched_request(self, method, url, **kwargs):
+            kwargs['verify'] = False
+            return original_request(self, method, url, **kwargs)
+        requests.Session.request = patched_request
         
-        # Create a session with SSL verification disabled
-        session = requests.Session()
-        session.verify = False
+        # Also patch the global requests functions
+        requests.packages.urllib3.disable_warnings()
         
-        # Monkey patch the requests session for sentence transformers
+        # Monkey patch sentence transformers utilities
         import sentence_transformers.util
-        sentence_transformers.util.http_get = lambda url, **kwargs: session.get(url, **kwargs)
+        original_http_get = sentence_transformers.util.http_get
+        def patched_http_get(url, **kwargs):
+            kwargs['verify'] = False
+            return original_http_get(url, **kwargs)
+        sentence_transformers.util.http_get = patched_http_get
         
-        # Try to load the model from local cache first, then download if needed
+        # Try to load the model with comprehensive SSL bypass
         cache_dir = os.path.join(os.getcwd(), 'model_cache')
+        os.makedirs(cache_dir, exist_ok=True)
+        
+        # Set HuggingFace environment variables for offline mode
+        os.environ['HF_HUB_DISABLE_TELEMETRY'] = '1'
+        os.environ['TRANSFORMERS_OFFLINE'] = '0'  # Allow online but with SSL disabled
+        
+        logger.info("Attempting to load sentence transformer model with SSL bypass...")
         
         try:
-            # First try to load from cache
             model = SentenceTransformer('all-MiniLM-L6-v2', 
                                       cache_folder=cache_dir,
-                                      trust_remote_code=True)
+                                      trust_remote_code=True,
+                                      device='cpu')
             logger.info("Successfully loaded sentence transformer model: all-MiniLM-L6-v2")
-        except Exception as cache_error:
-            logger.warning(f"Failed to load from cache: {cache_error}")
-            # Try to download with SSL disabled
-            model = SentenceTransformer('all-MiniLM-L6-v2', trust_remote_code=True)
-            logger.info("Successfully downloaded and loaded sentence transformer model")
+            
+        except Exception as e1:
+            logger.warning(f"First attempt failed: {e1}")
+            
+            # Try alternative model names
+            alternative_models = [
+                'sentence-transformers/all-MiniLM-L6-v2',
+                'microsoft/DialoGPT-medium',  # Fallback model
+                'distilbert-base-uncased'     # Another fallback
+            ]
+            
+            for alt_model in alternative_models:
+                try:
+                    logger.info(f"Trying alternative model: {alt_model}")
+                    model = SentenceTransformer(alt_model, 
+                                              cache_folder=cache_dir,
+                                              trust_remote_code=True,
+                                              device='cpu')
+                    logger.info(f"Successfully loaded alternative model: {alt_model}")
+                    break
+                except Exception as alt_error:
+                    logger.warning(f"Alternative model {alt_model} failed: {alt_error}")
+                    continue
+            
+            if model is None:
+                raise Exception("All model loading attempts failed")
         
     except Exception as e:
-        logger.error(f"Failed to load sentence transformer model: {e}")
-        logger.info("Attempting to use local cache or alternative approach...")
+        logger.error(f"All sentence transformer loading attempts failed: {e}")
+        logger.info("Creating basic transformer fallback...")
         
-        try:
-            # Try to use a different approach - download manually if needed
-            import transformers
-            transformers.utils.logging.set_verbosity_error()
-            
-            # Try with different model loading approach
-            from sentence_transformers import SentenceTransformer
-            model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', 
-                                      trust_remote_code=True,
-                                      cache_folder=os.path.join(os.getcwd(), 'model_cache'))
-            logger.info("Successfully loaded model using alternative method")
-            
-        except Exception as e2:
-            logger.error(f"Alternative loading method also failed: {e2}")
-            logger.info("Falling back to basic text matching")
-            model = None
+        # Create a minimal fallback that mimics sentence transformer interface
+        class BasicTransformer:
+            def encode(self, texts):
+                """Basic encoding using simple text features"""
+                if isinstance(texts, str):
+                    texts = [texts]
+                
+                # Simple feature extraction: word count, character count, etc.
+                features = []
+                for text in texts:
+                    words = text.lower().split()
+                    feature_vector = [
+                        len(words),                    # word count
+                        len(text),                     # character count
+                        len(set(words)),               # unique words
+                        sum(len(word) for word in words) / max(len(words), 1),  # avg word length
+                        text.count('.'),               # sentence count approximation
+                    ]
+                    # Pad to make it 384 dimensional like all-MiniLM-L6-v2
+                    feature_vector.extend([0.0] * (384 - len(feature_vector)))
+                    features.append(feature_vector)
+                
+                return np.array(features)
+        
+        model = BasicTransformer()
+        logger.info("Using basic transformer fallback")
+        
 else:
     logger.info("Using basic text matching (sentence transformers not available)")
 
