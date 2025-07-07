@@ -128,35 +128,35 @@ if SENTENCE_TRANSFORMERS_AVAILABLE:
                 raise Exception("No local model found. Please download model manually.")
                 
         except Exception as e:
-        logger.error(f"All sentence transformer loading attempts failed: {e}")
-        logger.info("Creating basic transformer fallback...")
+            logger.error(f"All sentence transformer loading attempts failed: {e}")
+            logger.info("Creating basic transformer fallback...")
         
-        # Create a minimal fallback that mimics sentence transformer interface
-        class BasicTransformer:
-            def encode(self, texts):
-                """Basic encoding using simple text features"""
-                if isinstance(texts, str):
-                    texts = [texts]
-                
-                # Simple feature extraction: word count, character count, etc.
-                features = []
-                for text in texts:
-                    words = text.lower().split()
-                    feature_vector = [
-                        len(words),                    # word count
-                        len(text),                     # character count
-                        len(set(words)),               # unique words
-                        sum(len(word) for word in words) / max(len(words), 1),  # avg word length
-                        text.count('.'),               # sentence count approximation
-                    ]
-                    # Pad to make it 384 dimensional like all-MiniLM-L6-v2
-                    feature_vector.extend([0.0] * (384 - len(feature_vector)))
-                    features.append(feature_vector)
-                
-                return np.array(features)
-        
-        model = BasicTransformer()
-        logger.info("Using basic transformer fallback")
+            # Create a minimal fallback that mimics sentence transformer interface
+            class BasicTransformer:
+                def encode(self, texts):
+                    """Basic encoding using simple text features"""
+                    if isinstance(texts, str):
+                        texts = [texts]
+                    
+                    # Simple feature extraction: word count, character count, etc.
+                    features = []
+                    for text in texts:
+                        words = text.lower().split()
+                        feature_vector = [
+                            len(words),                    # word count
+                            len(text),                     # character count
+                            len(set(words)),               # unique words
+                            sum(len(word) for word in words) / max(len(words), 1),  # avg word length
+                            text.count('.'),               # sentence count approximation
+                        ]
+                        # Pad to make it 384 dimensional like all-MiniLM-L6-v2
+                        feature_vector.extend([0.0] * (384 - len(feature_vector)))
+                        features.append(feature_vector)
+                    
+                    return np.array(features)
+            
+            model = BasicTransformer()
+            logger.info("Using basic transformer fallback")
         
 else:
     logger.info("Using basic text matching (sentence transformers not available)")
