@@ -126,8 +126,8 @@ if SENTENCE_TRANSFORMERS_AVAILABLE:
             
             if not model_loaded:
                 raise Exception("No local model found. Please download model manually.")
-        
-    except Exception as e:
+                
+        except Exception as e:
         logger.error(f"All sentence transformer loading attempts failed: {e}")
         logger.info("Creating basic transformer fallback...")
         
