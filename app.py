@@ -10,8 +10,14 @@ from flask import Flask, render_template, request, jsonify
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 import pandas as pd
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
+try:
+    from sentence_transformers import SentenceTransformer
+    from sklearn.metrics.pairwise import cosine_similarity
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
+    logger.warning("Sentence transformers not available - using basic text matching")
+
 import numpy as np
 import logging
 import os
@@ -30,12 +36,16 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 
 # Initialize sentence transformer model
-try:
-    model = SentenceTransformer('all-MiniLM-L6-v2')
-    logger.info("Sentence transformer model loaded successfully")
-except Exception as e:
-    logger.error(f"Failed to load sentence transformer model: {e}")
-    model = None
+model = None
+if SENTENCE_TRANSFORMERS_AVAILABLE:
+    try:
+        model = SentenceTransformer('all-MiniLM-L6-v2')
+        logger.info("Sentence transformer model loaded successfully")
+    except Exception as e:
+        logger.error(f"Failed to load sentence transformer model: {e}")
+        model = None
+else:
+    logger.info("Using basic text matching (sentence transformers not available)")
 
 class DatabaseManager:
     """Handles database connections and queries"""
@@ -125,55 +135,99 @@ class PWDMatcher:
     
     def calculate_similarity(self, job_data, pwd_records):
         """Calculate similarity scores between job data and PWD records"""
-        if not self.model or pwd_records.empty:
+        if pwd_records.empty:
             return []
         
         try:
-            # Create job description text
-            job_text = self._create_job_text(job_data)
-            
-            # Create PWD texts
-            pwd_texts = []
-            for _, pwd in pwd_records.iterrows():
-                pwd_text = self._create_pwd_text(pwd)
-                pwd_texts.append(pwd_text)
-            
-            if not pwd_texts:
-                return []
-            
-            # Calculate embeddings
-            job_embedding = self.model.encode([job_text])
-            pwd_embeddings = self.model.encode(pwd_texts)
-            
-            # Calculate cosine similarities
-            similarities = cosine_similarity(job_embedding, pwd_embeddings)[0]
-            
-            # Create results with similarity scores
-            results = []
-            for i, (_, pwd) in enumerate(pwd_records.iterrows()):
-                similarity_score = float(similarities[i])
-                match_strength = self._determine_match_strength(similarity_score)
-                
-                results.append({
-                    'pwd_case_number': pwd.get('PWD Case Number', ''),
-                    'company': pwd.get('C.1', ''),
-                    'job_title': pwd.get('F.a.1', ''),
-                    'job_location': pwd.get('F.e.1', ''),
-                    'job_description': pwd.get('F.a.2', ''),
-                    'education_required': self._get_education_level(pwd),
-                    'experience_required': pwd.get('F.b.4.a', ''),
-                    'similarity_score': similarity_score,
-                    'match_strength': match_strength,
-                    'wage_info': self._get_wage_info(pwd)
-                })
-            
-            # Sort by similarity score (highest first)
-            results.sort(key=lambda x: x['similarity_score'], reverse=True)
-            return results
+            if self.model and SENTENCE_TRANSFORMERS_AVAILABLE:
+                return self._calculate_semantic_similarity(job_data, pwd_records)
+            else:
+                return self._calculate_basic_similarity(job_data, pwd_records)
             
         except Exception as e:
             logger.error(f"Similarity calculation failed: {e}")
             return []
+    
+    def _calculate_semantic_similarity(self, job_data, pwd_records):
+        """Calculate similarity using sentence transformers"""
+        # Create job description text
+        job_text = self._create_job_text(job_data)
+        
+        # Create PWD texts
+        pwd_texts = []
+        for _, pwd in pwd_records.iterrows():
+            pwd_text = self._create_pwd_text(pwd)
+            pwd_texts.append(pwd_text)
+        
+        if not pwd_texts:
+            return []
+        
+        # Calculate embeddings
+        job_embedding = self.model.encode([job_text])
+        pwd_embeddings = self.model.encode(pwd_texts)
+        
+        # Calculate cosine similarities
+        similarities = cosine_similarity(job_embedding, pwd_embeddings)[0]
+        
+        # Create results with similarity scores
+        results = []
+        for i, (_, pwd) in enumerate(pwd_records.iterrows()):
+            similarity_score = float(similarities[i])
+            match_strength = self._determine_match_strength(similarity_score)
+            
+            results.append({
+                'pwd_case_number': pwd.get('PWD Case Number', ''),
+                'company': pwd.get('C.1', ''),
+                'job_title': pwd.get('F.a.1', ''),
+                'job_location': pwd.get('F.e.1', ''),
+                'job_description': pwd.get('F.a.2', ''),
+                'education_required': self._get_education_level(pwd),
+                'experience_required': pwd.get('F.b.4.a', ''),
+                'similarity_score': similarity_score,
+                'match_strength': match_strength,
+                'wage_info': self._get_wage_info(pwd)
+            })
+        
+        # Sort by similarity score (highest first)
+        results.sort(key=lambda x: x['similarity_score'], reverse=True)
+        return results
+    
+    def _calculate_basic_similarity(self, job_data, pwd_records):
+        """Calculate basic text similarity without sentence transformers"""
+        job_text = self._create_job_text(job_data).lower()
+        job_words = set(job_text.split())
+        
+        results = []
+        for _, pwd in pwd_records.iterrows():
+            pwd_text = self._create_pwd_text(pwd).lower()
+            pwd_words = set(pwd_text.split())
+            
+            # Calculate Jaccard similarity (intersection over union)
+            if job_words and pwd_words:
+                intersection = len(job_words.intersection(pwd_words))
+                union = len(job_words.union(pwd_words))
+                similarity_score = intersection / union if union > 0 else 0.0
+            else:
+                similarity_score = 0.0
+            
+            match_strength = self._determine_match_strength(similarity_score)
+            
+            results.append({
+                'pwd_case_number': pwd.get('PWD Case Number', ''),
+                'company': pwd.get('C.1', ''),
+                'job_title': pwd.get('F.a.1', ''),
+                'job_location': pwd.get('F.e.1', ''),
+                'job_description': pwd.get('F.a.2', ''),
+                'education_required': self._get_education_level(pwd),
+                'experience_required': pwd.get('F.b.4.a', ''),
+                'similarity_score': similarity_score,
+                'match_strength': match_strength,
+                'wage_info': self._get_wage_info(pwd)
+            })
+        
+        # Sort by similarity score (highest first)
+        results.sort(key=lambda x: x['similarity_score'], reverse=True)
+        return results
     
     def _create_job_text(self, job_data):
         """Create searchable text from job data"""
