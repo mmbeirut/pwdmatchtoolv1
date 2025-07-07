@@ -189,8 +189,8 @@ class DatabaseManager:
         try:
             engine = self.get_engine()
             
-            # Base query
-            query = f"SELECT * FROM [{TABLE_NAME}] WHERE [Case Status] = 'Certified'"
+            # Base query - temporarily remove case status filter to see all data
+            query = f"SELECT * FROM [{TABLE_NAME}]"
             
             # Log the base query
             logger.info(f"Base query: {query}")
@@ -212,7 +212,7 @@ class DatabaseManager:
                     filter_conditions.append(f"[F.a.1] IN ('{title_list}')")
                 
                 if filter_conditions:
-                    query += " AND " + " AND ".join(filter_conditions)
+                    query += " WHERE " + " AND ".join(filter_conditions)
                     logger.info(f"Query with filters: {query}")
             
             # Execute query and log results
@@ -223,6 +223,7 @@ class DatabaseManager:
             if len(df) > 0:
                 logger.info(f"Sample companies: {df['C.1'].head().tolist()}")
                 logger.info(f"Sample job titles: {df['F.a.1'].head().tolist()}")
+                logger.info(f"Sample case statuses: {df['Case Status'].head().tolist()}")
             else:
                 logger.warning("No records returned from query")
             
@@ -238,16 +239,16 @@ class DatabaseManager:
         try:
             engine = self.get_engine()
             
-            # Get unique companies
-            companies_query = f"SELECT DISTINCT [C.1] as company FROM [{TABLE_NAME}] WHERE [C.1] IS NOT NULL AND [Case Status] = 'Certified' ORDER BY [C.1]"
+            # Get unique companies (remove case status filter temporarily)
+            companies_query = f"SELECT DISTINCT [C.1] as company FROM [{TABLE_NAME}] WHERE [C.1] IS NOT NULL ORDER BY [C.1]"
             companies = pd.read_sql(companies_query, engine)['company'].tolist()
             
             # Get unique locations
-            locations_query = f"SELECT DISTINCT [F.e.1] as location FROM [{TABLE_NAME}] WHERE [F.e.1] IS NOT NULL AND [Case Status] = 'Certified' ORDER BY [F.e.1]"
+            locations_query = f"SELECT DISTINCT [F.e.1] as location FROM [{TABLE_NAME}] WHERE [F.e.1] IS NOT NULL ORDER BY [F.e.1]"
             locations = pd.read_sql(locations_query, engine)['location'].tolist()
             
             # Get unique job titles
-            titles_query = f"SELECT DISTINCT [F.a.1] as title FROM [{TABLE_NAME}] WHERE [F.a.1] IS NOT NULL AND [Case Status] = 'Certified' ORDER BY [F.a.1]"
+            titles_query = f"SELECT DISTINCT [F.a.1] as title FROM [{TABLE_NAME}] WHERE [F.a.1] IS NOT NULL ORDER BY [F.a.1]"
             titles = pd.read_sql(titles_query, engine)['title'].tolist()
             
             return {
@@ -583,23 +584,27 @@ def debug_data():
         total_result = pd.read_sql(total_query, engine)
         total_records = total_result['total'].iloc[0]
         
+        # Check what case status values actually exist
+        status_query = f"SELECT DISTINCT [Case Status], COUNT(*) as count FROM [{TABLE_NAME}] GROUP BY [Case Status]"
+        status_result = pd.read_sql(status_query, engine)
+        
         # Check certified records
         certified_query = f"SELECT COUNT(*) as certified FROM [{TABLE_NAME}] WHERE [Case Status] = 'Certified'"
         certified_result = pd.read_sql(certified_query, engine)
         certified_records = certified_result['certified'].iloc[0]
         
-        # Check for specific company
-        aecom_query = f"SELECT COUNT(*) as aecom FROM [{TABLE_NAME}] WHERE [C.1] LIKE '%AECOM%' AND [Case Status] = 'Certified'"
+        # Check for specific company (without case status filter)
+        aecom_query = f"SELECT COUNT(*) as aecom FROM [{TABLE_NAME}] WHERE [C.1] LIKE '%AECOM%'"
         aecom_result = pd.read_sql(aecom_query, engine)
         aecom_records = aecom_result['aecom'].iloc[0]
         
-        # Check for specific job title
-        civil_eng_query = f"SELECT COUNT(*) as civil_eng FROM [{TABLE_NAME}] WHERE [F.a.1] LIKE '%Civil Engineering%' AND [Case Status] = 'Certified'"
+        # Check for specific job title (without case status filter)
+        civil_eng_query = f"SELECT COUNT(*) as civil_eng FROM [{TABLE_NAME}] WHERE [F.a.1] LIKE '%Civil Engineering%'"
         civil_eng_result = pd.read_sql(civil_eng_query, engine)
         civil_eng_records = civil_eng_result['civil_eng'].iloc[0]
         
-        # Get sample records
-        sample_query = f"SELECT TOP 5 [PWD Case Number], [C.1], [F.a.1], [Case Status] FROM [{TABLE_NAME}] WHERE [Case Status] = 'Certified'"
+        # Get sample records (without case status filter)
+        sample_query = f"SELECT TOP 5 [PWD Case Number], [C.1], [F.a.1], [Case Status] FROM [{TABLE_NAME}]"
         sample_result = pd.read_sql(sample_query, engine)
         
         return jsonify({
@@ -607,6 +612,7 @@ def debug_data():
             'certified_records': int(certified_records),
             'aecom_records': int(aecom_records),
             'civil_engineering_records': int(civil_eng_records),
+            'case_status_values': status_result.to_dict('records'),
             'sample_records': sample_result.to_dict('records')
         })
         
