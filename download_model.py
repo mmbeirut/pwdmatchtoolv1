@@ -19,9 +19,9 @@ def setup_ssl_bypass():
     os.environ['REQUESTS_CA_BUNDLE'] = ''
     os.environ['SSL_VERIFY'] = 'false'
     
-    # Disable offline mode for downloading
-    os.environ['TRANSFORMERS_OFFLINE'] = '0'
-    os.environ['HF_HUB_OFFLINE'] = '0'
+    # IMPORTANT: Disable offline mode for downloading
+    os.environ.pop('TRANSFORMERS_OFFLINE', None)
+    os.environ.pop('HF_HUB_OFFLINE', None)
     os.environ['HF_HUB_DISABLE_TELEMETRY'] = '1'
     
     # Monkey patch requests to disable SSL verification globally
@@ -52,11 +52,12 @@ def download_model():
         os.makedirs(cache_dir, exist_ok=True)
         print(f"Cache directory: {cache_dir}")
         
-        # Try to download model with SSL bypass
+        # Try to download model with SSL bypass and explicit online mode
         model = SentenceTransformer('all-MiniLM-L6-v2', 
                                   cache_folder=cache_dir,
                                   trust_remote_code=True,
-                                  device='cpu')
+                                  device='cpu',
+                                  local_files_only=False)
         
         print(f"Model downloaded successfully to: {cache_dir}")
         print("Testing model...")
@@ -78,7 +79,8 @@ def download_model():
             model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', 
                                       cache_folder=cache_dir,
                                       trust_remote_code=True,
-                                      device='cpu')
+                                      device='cpu',
+                                      local_files_only=False)
             print("Alternative download method successful!")
             return True
             
@@ -91,6 +93,6 @@ def download_model():
 if __name__ == "__main__":
     success = download_model()
     if success:
-        print("\n✓ Model download completed successfully!")
+        print("\nModel download completed successfully!")
     else:
-        print("\n✗ Model download failed, but the app can still run with basic matching.")
+        print("\nModel download failed, but the app can still run with basic matching.")

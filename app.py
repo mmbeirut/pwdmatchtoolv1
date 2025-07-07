@@ -86,31 +86,14 @@ if SENTENCE_TRANSFORMERS_AVAILABLE:
             # First try to load from local cache in offline mode
             model = SentenceTransformer('all-MiniLM-L6-v2', 
                                       cache_folder=cache_dir,
-                                      device='cpu')
+                                      device='cpu',
+                                      local_files_only=True)
             logger.info("Successfully loaded sentence transformer model from cache: all-MiniLM-L6-v2")
             
         except Exception as e1:
             logger.warning(f"Offline loading failed: {e1}")
-            logger.info("Attempting online download with SSL bypass...")
-            
-            # Temporarily disable offline mode for download
-            os.environ['TRANSFORMERS_OFFLINE'] = '0'
-            os.environ['HF_HUB_OFFLINE'] = '0'
-            
-            try:
-                model = SentenceTransformer('all-MiniLM-L6-v2', 
-                                          cache_folder=cache_dir,
-                                          trust_remote_code=True,
-                                          device='cpu')
-                logger.info("Successfully downloaded and loaded sentence transformer model")
-                
-                # Re-enable offline mode for future use
-                os.environ['TRANSFORMERS_OFFLINE'] = '1'
-                os.environ['HF_HUB_OFFLINE'] = '1'
-                
-            except Exception as e2:
-                logger.error(f"Online download also failed: {e2}")
-                raise Exception("All model loading attempts failed")
+            logger.info("Model not found in cache. Please run 'python download_model.py' first.")
+            raise Exception("Model not available in cache. Run download_model.py first.")
         
     except Exception as e:
         logger.error(f"All sentence transformer loading attempts failed: {e}")

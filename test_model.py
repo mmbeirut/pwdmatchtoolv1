@@ -35,18 +35,18 @@ def test_model():
         ]
         
         embeddings = model.encode(test_sentences)
-        print(f"✓ Model encoding test successful! Shape: {embeddings.shape}")
+        print(f"Model encoding test successful! Shape: {embeddings.shape}")
         
         # Test similarity
         from sklearn.metrics.pairwise import cosine_similarity
         similarity = cosine_similarity([embeddings[0]], [embeddings[1]])[0][0]
-        print(f"✓ Similarity calculation successful! Score: {similarity:.4f}")
+        print(f"Similarity calculation successful! Score: {similarity:.4f}")
         
-        print("\n🎉 All tests passed! The model is ready for use.")
+        print("\nAll tests passed! The model is ready for use.")
         return True
         
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f"Test failed: {e}")
         print("\nTry running: python download_model.py")
         return False
 
