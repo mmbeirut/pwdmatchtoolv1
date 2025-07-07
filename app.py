@@ -476,6 +476,21 @@ class PWDMatcher:
 db_manager = DatabaseManager()
 pwd_matcher = PWDMatcher(model) if model else None
 
+# Log model information for debugging
+if model:
+    model_type = type(model).__name__
+    model_module = type(model).__module__
+    logger.info(f"Initialized with model type: {model_type} from module: {model_module}")
+    
+    if 'sentence_transformers' in model_module.lower():
+        logger.info("✅ Using real SentenceTransformer model for semantic similarity")
+    elif model_type == 'BasicTransformer':
+        logger.info("⚠️  Using BasicTransformer fallback with simple features")
+    else:
+        logger.info(f"❓ Using unknown model type: {model_type}")
+else:
+    logger.info("❌ No model loaded - will use basic text matching")
+
 @app.route('/')
 def index():
     """Main page with job input form"""
@@ -631,6 +646,71 @@ def debug_data():
         
     except Exception as e:
         logger.error(f"Debug query failed: {e}")
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+@app.route('/debug/model')
+def debug_model():
+    """Debug endpoint to check which model is being used"""
+    try:
+        model_info = {
+            'sentence_transformers_available': SENTENCE_TRANSFORMERS_AVAILABLE,
+            'model_loaded': model is not None,
+            'pwd_matcher_initialized': pwd_matcher is not None
+        }
+        
+        if model:
+            model_info.update({
+                'model_type': type(model).__name__,
+                'model_module': type(model).__module__,
+                'model_class': str(model.__class__)
+            })
+            
+            # Test model encoding
+            try:
+                test_text = ["Test sentence for model verification"]
+                embeddings = model.encode(test_text)
+                model_info.update({
+                    'encoding_test': 'success',
+                    'embedding_shape': embeddings.shape,
+                    'embedding_dimensions': embeddings.shape[1] if len(embeddings.shape) > 1 else 'N/A'
+                })
+                
+                # Determine model type
+                if 'sentence_transformers' in model_info['model_module'].lower():
+                    model_info['matching_method'] = 'semantic_similarity_sentence_transformers'
+                elif model_info['model_type'] == 'BasicTransformer':
+                    model_info['matching_method'] = 'basic_transformer_fallback'
+                else:
+                    model_info['matching_method'] = 'unknown'
+                    
+            except Exception as e:
+                model_info.update({
+                    'encoding_test': 'failed',
+                    'encoding_error': str(e)
+                })
+        else:
+            model_info['matching_method'] = 'basic_text_matching_jaccard'
+        
+        # Check model files
+        local_model_path = os.path.join(os.getcwd(), 'local_model')
+        cache_model_path = os.path.join(os.getcwd(), 'model_cache')
+        
+        model_info.update({
+            'local_model_directory_exists': os.path.exists(local_model_path),
+            'cache_model_directory_exists': os.path.exists(cache_model_path),
+            'environment_variables': {
+                'TRANSFORMERS_OFFLINE': os.environ.get('TRANSFORMERS_OFFLINE', 'not_set'),
+                'HF_HUB_OFFLINE': os.environ.get('HF_HUB_OFFLINE', 'not_set'),
+                'HF_HUB_DISABLE_TELEMETRY': os.environ.get('HF_HUB_DISABLE_TELEMETRY', 'not_set')
+            }
+        })
+        
+        return jsonify(model_info)
+        
+    except Exception as e:
+        logger.error(f"Model debug query failed: {e}")
         return jsonify({
             'error': str(e)
         }), 500
