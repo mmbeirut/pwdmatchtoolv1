@@ -16,8 +16,10 @@ def test_model():
         from sentence_transformers import SentenceTransformer
         
         cache_dir = os.path.join(os.getcwd(), 'model_cache')
+        local_model_dir = os.path.join(os.getcwd(), 'local_model')
         
         print("Testing sentence transformer model...")
+        print(f"Local model directory: {local_model_dir}")
         print(f"Cache directory: {cache_dir}")
         print(f"Offline mode: {os.environ.get('TRANSFORMERS_OFFLINE', 'not set')}")
         
@@ -25,15 +27,17 @@ def test_model():
         model = None
         model_loaded = False
         
-        # 1. Try loading from local model directory
-        local_model_path = os.path.join(os.getcwd(), 'local_model')
-        if os.path.exists(local_model_path):
+        # 1. Try loading from local model directory (manually downloaded)
+        if os.path.exists(local_model_dir):
+            print(f"Found local model directory: {local_model_dir}")
             try:
-                model = SentenceTransformer(local_model_path, device='cpu')
-                print(f"Model loaded from local directory: {local_model_path}")
+                model = SentenceTransformer(local_model_dir, device='cpu')
+                print(f"✓ Model loaded successfully from local directory: {local_model_dir}")
                 model_loaded = True
             except Exception as local_error:
-                print(f"Failed to load from local directory: {local_error}")
+                print(f"✗ Failed to load from local directory: {local_error}")
+        else:
+            print(f"Local model directory not found: {local_model_dir}")
         
         # 2. Try loading from cache
         if not model_loaded:
