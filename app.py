@@ -158,6 +158,11 @@ if SENTENCE_TRANSFORMERS_AVAILABLE:
             model = BasicTransformer()
             logger.info("Using basic transformer fallback")
         
+    except Exception as e:
+        logger.error(f"All sentence transformer loading attempts failed: {e}")
+        logger.info("Using basic text matching (sentence transformers not available)")
+        model = None
+        
 else:
     logger.info("Using basic text matching (sentence transformers not available)")
 
