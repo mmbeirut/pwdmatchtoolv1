@@ -192,6 +192,9 @@ class DatabaseManager:
             # Base query
             query = f"SELECT * FROM [{TABLE_NAME}] WHERE [Case Status] = 'Certified'"
             
+            # Log the base query
+            logger.info(f"Base query: {query}")
+            
             # Add filters if provided
             if filters:
                 filter_conditions = []
@@ -210,13 +213,24 @@ class DatabaseManager:
                 
                 if filter_conditions:
                     query += " AND " + " AND ".join(filter_conditions)
+                    logger.info(f"Query with filters: {query}")
             
+            # Execute query and log results
             df = pd.read_sql(query, engine)
-            logger.info(f"Retrieved {len(df)} PWD records")
+            logger.info(f"Query executed successfully. Retrieved {len(df)} PWD records")
+            
+            # Log some sample data for debugging
+            if len(df) > 0:
+                logger.info(f"Sample companies: {df['C.1'].head().tolist()}")
+                logger.info(f"Sample job titles: {df['F.a.1'].head().tolist()}")
+            else:
+                logger.warning("No records returned from query")
+            
             return df
             
         except Exception as e:
             logger.error(f"Database query failed: {e}")
+            logger.error(f"Query was: {query}")
             return pd.DataFrame()
     
     def get_filter_options(self):
@@ -476,6 +490,9 @@ def search_pwds():
             'salary_range': request.form.get('salary_range', '')
         }
         
+        # Log the search parameters for debugging
+        logger.info(f"Search request - Job Title: '{job_data['job_title']}', Company: '{job_data['company']}'")
+        
         # Get filters
         filters = {
             'companies': request.form.getlist('filter_companies'),
@@ -485,15 +502,22 @@ def search_pwds():
         
         # Remove empty filters
         filters = {k: v for k, v in filters.items() if v}
+        logger.info(f"Applied filters: {filters}")
         
         # Get PWD records
         pwd_records = db_manager.get_pwds(filters)
+        logger.info(f"Retrieved {len(pwd_records)} PWD records from database")
         
         if pwd_records.empty:
+            # Try a broader search without filters to see if data exists
+            logger.info("No records found with filters, trying broader search...")
+            all_records = db_manager.get_pwds()
+            logger.info(f"Total certified PWD records in database: {len(all_records)}")
+            
             return jsonify({
                 'success': True,
                 'results': [],
-                'message': 'No PWD records found matching your criteria.'
+                'message': f'No PWD records found matching your criteria. Total certified PWDs in database: {len(all_records)}'
             })
         
         # Calculate similarities
@@ -512,6 +536,8 @@ def search_pwds():
                     'similarity_score': 0.5,
                     'match_strength': 'Unknown'
                 })
+        
+        logger.info(f"Returning {len(results)} results")
         
         return jsonify({
             'success': True,
@@ -543,6 +569,50 @@ def health_check():
     except Exception as e:
         return jsonify({
             'status': 'unhealthy',
+            'error': str(e)
+        }), 500
+
+@app.route('/debug/data')
+def debug_data():
+    """Debug endpoint to check database data"""
+    try:
+        engine = db_manager.get_engine()
+        
+        # Check total records
+        total_query = f"SELECT COUNT(*) as total FROM [{TABLE_NAME}]"
+        total_result = pd.read_sql(total_query, engine)
+        total_records = total_result['total'].iloc[0]
+        
+        # Check certified records
+        certified_query = f"SELECT COUNT(*) as certified FROM [{TABLE_NAME}] WHERE [Case Status] = 'Certified'"
+        certified_result = pd.read_sql(certified_query, engine)
+        certified_records = certified_result['certified'].iloc[0]
+        
+        # Check for specific company
+        aecom_query = f"SELECT COUNT(*) as aecom FROM [{TABLE_NAME}] WHERE [C.1] LIKE '%AECOM%' AND [Case Status] = 'Certified'"
+        aecom_result = pd.read_sql(aecom_query, engine)
+        aecom_records = aecom_result['aecom'].iloc[0]
+        
+        # Check for specific job title
+        civil_eng_query = f"SELECT COUNT(*) as civil_eng FROM [{TABLE_NAME}] WHERE [F.a.1] LIKE '%Civil Engineering%' AND [Case Status] = 'Certified'"
+        civil_eng_result = pd.read_sql(civil_eng_query, engine)
+        civil_eng_records = civil_eng_result['civil_eng'].iloc[0]
+        
+        # Get sample records
+        sample_query = f"SELECT TOP 5 [PWD Case Number], [C.1], [F.a.1], [Case Status] FROM [{TABLE_NAME}] WHERE [Case Status] = 'Certified'"
+        sample_result = pd.read_sql(sample_query, engine)
+        
+        return jsonify({
+            'total_records': int(total_records),
+            'certified_records': int(certified_records),
+            'aecom_records': int(aecom_records),
+            'civil_engineering_records': int(civil_eng_records),
+            'sample_records': sample_result.to_dict('records')
+        })
+        
+    except Exception as e:
+        logger.error(f"Debug query failed: {e}")
+        return jsonify({
             'error': str(e)
         }), 500
 
