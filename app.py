@@ -483,13 +483,13 @@ if model:
     logger.info(f"Initialized with model type: {model_type} from module: {model_module}")
     
     if 'sentence_transformers' in model_module.lower():
-        logger.info("✅ Using real SentenceTransformer model for semantic similarity")
+        logger.info("Using real SentenceTransformer model for semantic similarity")
     elif model_type == 'BasicTransformer':
-        logger.info("⚠️  Using BasicTransformer fallback with simple features")
+        logger.info("Using BasicTransformer fallback with simple features")
     else:
-        logger.info(f"❓ Using unknown model type: {model_type}")
+        logger.info(f"Using unknown model type: {model_type}")
 else:
-    logger.info("❌ No model loaded - will use basic text matching")
+    logger.info("No model loaded - will use basic text matching")
 
 @app.route('/')
 def index():
