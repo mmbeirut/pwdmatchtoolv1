@@ -92,10 +92,10 @@
                         <p class="text-muted small">Use these filters to narrow down the PWD search results.</p>
                         
                         <div class="row">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="mb-3">
                                     <label for="filter_companies" class="form-label">Filter by Companies</label>
-                                    <select class="form-select" id="filter_companies" name="filter_companies" multiple size="5">
+                                    <select class="form-select" id="filter_companies" name="filter_companies" multiple size="3">
                                         {% for company in filter_options.companies[:20] %}
                                         <option value="{{ company }}">{{ company }}</option>
                                         {% endfor %}
@@ -103,10 +103,10 @@
                                     <small class="text-muted">Hold Ctrl/Cmd to select multiple</small>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="mb-3">
                                     <label for="filter_locations" class="form-label">Filter by Locations</label>
-                                    <select class="form-select" id="filter_locations" name="filter_locations" multiple size="5">
+                                    <select class="form-select" id="filter_locations" name="filter_locations" multiple size="3">
                                         {% for location in filter_options.locations[:20] %}
                                         <option value="{{ location }}">{{ location }}</option>
                                         {% endfor %}
@@ -114,12 +114,23 @@
                                     <small class="text-muted">Hold Ctrl/Cmd to select multiple</small>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="mb-3">
                                     <label for="filter_job_titles" class="form-label">Filter by Job Titles</label>
-                                    <select class="form-select" id="filter_job_titles" name="filter_job_titles" multiple size="5">
+                                    <select class="form-select" id="filter_job_titles" name="filter_job_titles" multiple size="3">
                                         {% for title in filter_options.job_titles[:20] %}
                                         <option value="{{ title }}">{{ title }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <small class="text-muted">Hold Ctrl/Cmd to select multiple</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="filter_case_statuses" class="form-label">Filter by Case Status</label>
+                                    <select class="form-select" id="filter_case_statuses" name="filter_case_statuses" multiple size="3">
+                                        {% for status in filter_options.case_statuses %}
+                                        <option value="{{ status }}">{{ status }}</option>
                                         {% endfor %}
                                     </select>
                                     <small class="text-muted">Hold Ctrl/Cmd to select multiple</small>
@@ -192,6 +203,9 @@ $(document).ready(function() {
         $('#filter_job_titles option:selected').each(function() {
             formData.append('filter_job_titles', $(this).val());
         });
+        $('#filter_case_statuses option:selected').each(function() {
+            formData.append('filter_case_statuses', $(this).val());
+        });
         
         $.ajax({
             url: '/search',
@@ -239,6 +253,7 @@ $(document).ready(function() {
                 html += '<h6 class="card-subtitle mb-2 text-muted">' + (result.company || 'N/A') + '</h6>';
                 html += '<p class="card-text"><strong>Location:</strong> ' + (result.job_location || 'N/A') + '</p>';
                 html += '<p class="card-text"><strong>PWD Case:</strong> ' + (result.pwd_case_number || 'N/A') + '</p>';
+                html += '<p class="card-text"><strong>Case Status:</strong> ' + (result.case_status || 'N/A') + '</p>';
                 
                 if (result.job_description) {
                     var shortDesc = result.job_description.length > 200 ? 
