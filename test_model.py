@@ -32,10 +32,10 @@ def test_model():
             print(f"Found local model directory: {local_model_dir}")
             try:
                 model = SentenceTransformer(local_model_dir, device='cpu')
-                print(f"✓ Model loaded successfully from local directory: {local_model_dir}")
+                print(f"Model loaded successfully from local directory: {local_model_dir}")
                 model_loaded = True
             except Exception as local_error:
-                print(f"✗ Failed to load from local directory: {local_error}")
+                print(f"Failed to load from local directory: {local_error}")
         else:
             print(f"Local model directory not found: {local_model_dir}")
         
