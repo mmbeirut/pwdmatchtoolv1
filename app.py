@@ -281,6 +281,16 @@ class PWDMatcher:
         if pwd_records.empty:
             return []
         
+        # Stage 1: Exact company match if company specified
+        if job_data.get('company'):
+            company_name = job_data['company'].strip().lower()
+            pwd_records = pwd_records[pwd_records['C.1'].str.strip().str.lower() == company_name]
+            
+            if pwd_records.empty:
+                logger.info(f"No exact matches found for company: {job_data['company']}")
+                return []
+        
+        # Stage 2: Calculate similarity on remaining records
         try:
             if self.model and SENTENCE_TRANSFORMERS_AVAILABLE:
                 return self._calculate_semantic_similarity(job_data, pwd_records)
