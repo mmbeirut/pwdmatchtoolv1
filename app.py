@@ -205,7 +205,7 @@ class DatabaseManager:
                 
                 if filters.get('locations'):
                     location_list = "', '".join(filters['locations'])
-                    filter_conditions.append(f"[F.e.1] IN ('{location_list}')")
+                    filter_conditions.append(f"CONCAT([F.e.3], ', ', [F.e.4]) IN ('{location_list}')")
                 
                 if filters.get('job_titles'):
                     title_list = "', '".join(filters['job_titles'])
@@ -247,8 +247,8 @@ class DatabaseManager:
             companies_query = f"SELECT DISTINCT [C.1] as company FROM [{TABLE_NAME}] WHERE [C.1] IS NOT NULL ORDER BY [C.1]"
             companies = pd.read_sql(companies_query, engine)['company'].tolist()
             
-            # Get unique locations
-            locations_query = f"SELECT DISTINCT [F.e.1] as location FROM [{TABLE_NAME}] WHERE [F.e.1] IS NOT NULL ORDER BY [F.e.1]"
+            # Get unique locations using F.e.3 and F.e.4
+            locations_query = f"SELECT DISTINCT CONCAT([F.e.3], ', ', [F.e.4]) as location FROM [{TABLE_NAME}] WHERE [F.e.3] IS NOT NULL AND [F.e.4] IS NOT NULL ORDER BY location"
             locations = pd.read_sql(locations_query, engine)['location'].tolist()
             
             # Get unique job titles
@@ -295,38 +295,63 @@ class PWDMatcher:
         """Calculate similarity using sentence transformers"""
         # Create job description text
         job_text = self._create_job_text(job_data)
+        job_skills_text = self._create_job_skills_text(job_data)
         
         # Create PWD texts
         pwd_texts = []
+        pwd_skills_texts = []
         for _, pwd in pwd_records.iterrows():
             pwd_text = self._create_pwd_text(pwd)
             pwd_texts.append(pwd_text)
+            pwd_skills_text = self._create_pwd_skills_text(pwd)
+            pwd_skills_texts.append(pwd_skills_text)
         
         if not pwd_texts:
             return []
         
         # Calculate embeddings
         job_embedding = self.model.encode([job_text])
+        job_skills_embedding = self.model.encode([job_skills_text]) if job_skills_text else None
         pwd_embeddings = self.model.encode(pwd_texts)
+        pwd_skills_embeddings = self.model.encode(pwd_skills_texts)
         
         # Calculate cosine similarities
-        similarities = cosine_similarity(job_embedding, pwd_embeddings)[0]
+        job_similarities = cosine_similarity(job_embedding, pwd_embeddings)[0]
         
         # Create results with similarity scores
         results = []
         for i, (_, pwd) in enumerate(pwd_records.iterrows()):
-            similarity_score = float(similarities[i])
-            match_strength = self._determine_match_strength(similarity_score)
+            job_similarity_score = float(job_similarities[i])
+            
+            # Calculate skills similarity
+            skills_similarity_score = 0.0
+            if job_skills_embedding is not None and pwd_skills_texts[i]:
+                skills_similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
+                skills_similarity_score = float(skills_similarities[0])
+            
+            # Combined similarity (weighted average: 70% job description, 30% skills)
+            combined_similarity = (0.7 * job_similarity_score) + (0.3 * skills_similarity_score)
+            match_strength = self._determine_match_strength(combined_similarity)
+            
+            # Use F.e.3 and F.e.4 for location display
+            location_parts = []
+            if pwd.get('F.e.3'):
+                location_parts.append(pwd['F.e.3'])
+            if pwd.get('F.e.4'):
+                location_parts.append(pwd['F.e.4'])
+            job_location = ' '.join(location_parts) if location_parts else pwd.get('F.e.1', '')
             
             results.append({
                 'pwd_case_number': pwd.get('PWD Case Number', ''),
                 'company': pwd.get('C.1', ''),
                 'job_title': pwd.get('F.a.1', ''),
-                'job_location': pwd.get('F.e.1', ''),
+                'job_location': job_location,
                 'job_description': pwd.get('F.a.2', ''),
                 'education_required': self._get_education_level(pwd),
                 'experience_required': pwd.get('F.b.4.a', ''),
-                'similarity_score': similarity_score,
+                'similarity_score': combined_similarity,
+                'job_similarity': job_similarity_score,
+                'skills_similarity': skills_similarity_score,
                 'match_strength': match_strength,
                 'wage_info': self._get_wage_info(pwd),
                 'case_status': pwd.get('Case Status', '')
@@ -339,32 +364,55 @@ class PWDMatcher:
     def _calculate_basic_similarity(self, job_data, pwd_records):
         """Calculate basic text similarity without sentence transformers"""
         job_text = self._create_job_text(job_data).lower()
+        job_skills_text = self._create_job_skills_text(job_data).lower()
         job_words = set(job_text.split())
+        job_skills_words = set(job_skills_text.split()) if job_skills_text else set()
         
         results = []
         for _, pwd in pwd_records.iterrows():
             pwd_text = self._create_pwd_text(pwd).lower()
+            pwd_skills_text = self._create_pwd_skills_text(pwd).lower()
             pwd_words = set(pwd_text.split())
+            pwd_skills_words = set(pwd_skills_text.split()) if pwd_skills_text else set()
             
-            # Calculate Jaccard similarity (intersection over union)
+            # Calculate Jaccard similarity for job description (intersection over union)
             if job_words and pwd_words:
                 intersection = len(job_words.intersection(pwd_words))
                 union = len(job_words.union(pwd_words))
-                similarity_score = intersection / union if union > 0 else 0.0
+                job_similarity_score = intersection / union if union > 0 else 0.0
             else:
-                similarity_score = 0.0
+                job_similarity_score = 0.0
             
-            match_strength = self._determine_match_strength(similarity_score)
+            # Calculate Jaccard similarity for skills
+            skills_similarity_score = 0.0
+            if job_skills_words and pwd_skills_words:
+                skills_intersection = len(job_skills_words.intersection(pwd_skills_words))
+                skills_union = len(job_skills_words.union(pwd_skills_words))
+                skills_similarity_score = skills_intersection / skills_union if skills_union > 0 else 0.0
+            
+            # Combined similarity (weighted average: 70% job description, 30% skills)
+            combined_similarity = (0.7 * job_similarity_score) + (0.3 * skills_similarity_score)
+            match_strength = self._determine_match_strength(combined_similarity)
+            
+            # Use F.e.3 and F.e.4 for location display
+            location_parts = []
+            if pwd.get('F.e.3'):
+                location_parts.append(pwd['F.e.3'])
+            if pwd.get('F.e.4'):
+                location_parts.append(pwd['F.e.4'])
+            job_location = ' '.join(location_parts) if location_parts else pwd.get('F.e.1', '')
             
             results.append({
                 'pwd_case_number': pwd.get('PWD Case Number', ''),
                 'company': pwd.get('C.1', ''),
                 'job_title': pwd.get('F.a.1', ''),
-                'job_location': pwd.get('F.e.1', ''),
+                'job_location': job_location,
                 'job_description': pwd.get('F.a.2', ''),
                 'education_required': self._get_education_level(pwd),
                 'experience_required': pwd.get('F.b.4.a', ''),
-                'similarity_score': similarity_score,
+                'similarity_score': combined_similarity,
+                'job_similarity': job_similarity_score,
+                'skills_similarity': skills_similarity_score,
                 'match_strength': match_strength,
                 'wage_info': self._get_wage_info(pwd),
                 'case_status': pwd.get('Case Status', '')
@@ -386,12 +434,16 @@ class PWDMatcher:
             text_parts.append(f"Education: {job_data['education_level']}")
         if job_data.get('experience_required'):
             text_parts.append(f"Experience: {job_data['experience_required']}")
-        if job_data.get('skills'):
-            text_parts.append(f"Skills: {job_data['skills']}")
         if job_data.get('location'):
             text_parts.append(f"Location: {job_data['location']}")
         
         return " ".join(text_parts)
+    
+    def _create_job_skills_text(self, job_data):
+        """Create searchable text from job skills data"""
+        if job_data.get('skills'):
+            return f"Skills: {job_data['skills']}"
+        return ""
     
     def _create_pwd_text(self, pwd):
         """Create searchable text from PWD record"""
@@ -399,10 +451,16 @@ class PWDMatcher:
         
         if pwd.get('F.a.1'):
             text_parts.append(f"Job Title: {pwd['F.a.1']}")
+        
+        # Combine F.a.2 with Addendum1 for job description
+        job_desc_parts = []
         if pwd.get('F.a.2'):
-            text_parts.append(f"Description: {pwd['F.a.2']}")
-        if pwd.get('F.a.2.addendum'):
-            text_parts.append(f"Additional Description: {pwd['F.a.2.addendum']}")
+            job_desc_parts.append(pwd['F.a.2'])
+        if pwd.get('Addendum1'):
+            job_desc_parts.append(pwd['Addendum1'])
+        
+        if job_desc_parts:
+            text_parts.append(f"Description: {' '.join(job_desc_parts)}")
         
         education = self._get_education_level(pwd)
         if education:
@@ -410,12 +468,30 @@ class PWDMatcher:
         
         if pwd.get('F.b.4.a'):
             text_parts.append(f"Experience: {pwd['F.b.4.a']}")
-        if pwd.get('F.b.4.b'):
-            text_parts.append(f"Skills: {pwd['F.b.4.b']}")
-        if pwd.get('F.e.1'):
-            text_parts.append(f"Location: {pwd['F.e.1']}")
+        
+        # Use F.e.3 and F.e.4 for location instead of F.e.1
+        location_parts = []
+        if pwd.get('F.e.3'):
+            location_parts.append(pwd['F.e.3'])
+        if pwd.get('F.e.4'):
+            location_parts.append(pwd['F.e.4'])
+        
+        if location_parts:
+            text_parts.append(f"Location: {' '.join(location_parts)}")
         
         return " ".join(text_parts)
+    
+    def _create_pwd_skills_text(self, pwd):
+        """Create searchable text from PWD skills data"""
+        skills_parts = []
+        if pwd.get('Addendum4'):
+            skills_parts.append(pwd['Addendum4'])
+        if pwd.get('Addendum6'):
+            skills_parts.append(pwd['Addendum6'])
+        
+        if skills_parts:
+            return f"Skills: {' '.join(skills_parts)}"
+        return ""
     
     def _get_education_level(self, pwd):
         """Extract education level from PWD record"""
