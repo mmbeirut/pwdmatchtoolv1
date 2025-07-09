@@ -88,8 +88,14 @@
                     
                     <!-- Filters Section -->
                     <div class="filter-section">
-                        <h5 class="mb-3"><i class="bi bi-funnel"></i> Search Filters (Optional)</h5>
-                        <p class="text-muted small">Use these filters to narrow down the PWD search results.</p>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0"><i class="bi bi-funnel"></i> Search Filters (Optional)</h5>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="toggleFilters">
+                                <i class="bi bi-eye" id="filterIcon"></i> Show Filters
+                            </button>
+                        </div>
+                        <div id="filtersContainer" style="display: none;">
+                            <p class="text-muted small">Use these filters to narrow down the PWD search results.</p>
                         
                         <div class="row">
                             <div class="col-md-3">
@@ -137,6 +143,7 @@
                                 </div>
                             </div>
                         </div>
+                        </div>
                     </div>
                     
                     <div class="text-center">
@@ -181,6 +188,25 @@
 {% block extra_js %}
 <script>
 $(document).ready(function() {
+    // Toggle filters functionality
+    $('#toggleFilters').on('click', function() {
+        var filtersContainer = $('#filtersContainer');
+        var filterIcon = $('#filterIcon');
+        var button = $(this);
+        
+        if (filtersContainer.is(':visible')) {
+            // Hide filters
+            filtersContainer.slideUp();
+            filterIcon.removeClass('bi-eye-slash').addClass('bi-eye');
+            button.html('<i class="bi bi-eye" id="filterIcon"></i> Show Filters');
+        } else {
+            // Show filters
+            filtersContainer.slideDown();
+            filterIcon.removeClass('bi-eye').addClass('bi-eye-slash');
+            button.html('<i class="bi bi-eye-slash" id="filterIcon"></i> Hide Filters');
+        }
+    });
+    
     $('#jobForm').on('submit', function(e) {
         e.preventDefault();
         
