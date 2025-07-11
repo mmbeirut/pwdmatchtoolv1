@@ -361,43 +361,32 @@ class PWDMatcher:
                 job_similarity_score = float(job_similarities[i])
 
                 # Calculate skills similarity
-                skills_similarity_score = 0.0  # Initialize to 0.0 for safety
-            
-                # Skip skills similarity calculation for invalid or empty texts
+                skills_similarity_score = 0.0
+                
+                # Only attempt skills similarity if we have valid embeddings
                 if (job_skills_embedding is not None and 
-                    pwd_skills_texts[i] and 
-                    isinstance(pwd_skills_texts[i], str) and  # Ensure it's a string
-                    pwd_skills_texts[i].strip() and  # Ensure it's not empty
-                    isinstance(pwd_skills_embeddings[i], np.ndarray) and  # Ensure embedding is valid
-                    pwd_skills_embeddings[i].size > 0):  # Ensure embedding is not empty
+                    isinstance(pwd_skills_embeddings[i], np.ndarray) and 
+                    pwd_skills_embeddings[i].size > 0 and 
+                    not np.all(pwd_skills_embeddings[i] == 0)):  # Skip zero vectors
                     try:
                         similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
-                        # Convert any numpy values to Python float
-                        if isinstance(similarities[0], (int, float, np.number)):
+                        if isinstance(similarities, np.ndarray) and similarities.size > 0:
                             skills_similarity_score = float(similarities[0])
-                        else:
-                            logger.warning(f"Unexpected similarity value: {similarities[0]} of type {type(similarities[0])}")
                     except Exception as e:
                         logger.error(f"Skills similarity calculation failed: {str(e)}")
-                        logger.error(f"Skills text: {pwd_skills_texts[i]}")
-                        logger.error(f"Skills embedding shape: {pwd_skills_embeddings[i].shape if isinstance(pwd_skills_embeddings[i], np.ndarray) else 'not numpy array'}")
+                        skills_similarity_score = 0.0
 
+                # Calculate combined similarity
                 try:
-                    # Combined similarity (weighted average: 70% job description, 30% skills)
-                    # Ensure job_similarity_score is numeric before calculation
-                    if isinstance(job_similarity_score, (int, float, np.number)):
-                        combined_similarity = (0.7 * job_similarity_score) + (0.3 * skills_similarity_score)
-                        match_strength = self._determine_match_strength(combined_similarity)
-                    else:
-                        # This case should ideally not be hit if job_similarities[i] is always numeric
-                        logger.warning(
-                            f"Unexpected job_similarity_score type before combined calculation for record {i}: {type(job_similarity_score)}. Defaulting combined_similarity to 0.0.")
-                        combined_similarity = 0.0
-                        match_strength = 'Very Weak'
-                except Exception as e:
-                    logger.error(f"Combined similarity calculation failed for record {i}: {e}")
-                    logger.error(
-                        f"Values - job_similarity: {job_similarity_score}, skills_similarity: {skills_similarity_score}")
+                    # Convert numpy values to Python floats
+                    job_sim = float(job_similarity_score)
+                    skills_sim = float(skills_similarity_score)
+                    
+                    # Calculate weighted average
+                    combined_similarity = (0.7 * job_sim) + (0.3 * skills_sim)
+                    match_strength = self._determine_match_strength(combined_similarity)
+                except (ValueError, TypeError) as e:
+                    logger.error(f"Combined similarity calculation failed: {e}")
                     combined_similarity = 0.0
                     match_strength = 'Very Weak'
 
