@@ -347,20 +347,23 @@ class PWDMatcher:
                 # Calculate skills similarity
                 skills_similarity_score = 0.0  # Initialize to 0.0 for safety
             
-                # Skip skills similarity calculation if either text is empty
-                if job_skills_embedding is not None and pwd_skills_texts[i] and pwd_skills_texts[i].strip():
+                # Skip skills similarity calculation if either text is empty or invalid
+                if (job_skills_embedding is not None and 
+                    pwd_skills_texts[i] and 
+                    isinstance(pwd_skills_texts[i], str) and  # Ensure it's a string
+                    pwd_skills_texts[i].strip() and  # Ensure it's not empty
+                    isinstance(pwd_skills_embeddings[i], np.ndarray)):  # Ensure embedding is valid
                     try:
-                        # Ensure pwd_skills_embeddings[i] is a valid numpy array
-                        if isinstance(pwd_skills_embeddings[i], np.ndarray):
-                            similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
-                            if isinstance(similarities[0], (int, float, np.number)):
-                                skills_similarity_score = float(similarities[0])
-                            else:
-                                logger.warning(f"Invalid similarity value type: {type(similarities[0])}")
+                        similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
+                        # Convert any numpy values to Python float
+                        if isinstance(similarities[0], (int, float, np.number)):
+                            skills_similarity_score = float(similarities[0])
                         else:
-                            logger.warning(f"Invalid embedding type: {type(pwd_skills_embeddings[i])}")
+                            logger.warning(f"Unexpected similarity value: {similarities[0]} of type {type(similarities[0])}")
                     except Exception as e:
                         logger.error(f"Skills similarity calculation failed: {str(e)}")
+                        logger.error(f"Skills text: {pwd_skills_texts[i]}")
+                        logger.error(f"Skills embedding shape: {pwd_skills_embeddings[i].shape if isinstance(pwd_skills_embeddings[i], np.ndarray) else 'not numpy array'}")
 
                 try:
                     # Combined similarity (weighted average: 70% job description, 30% skills)
