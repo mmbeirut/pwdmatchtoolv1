@@ -344,10 +344,11 @@ class PWDMatcher:
             if job_skills_embedding is not None and pwd_skills_texts[i]:
                 try:
                     skills_similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
-                    logger.info(f"Raw skills similarities: {skills_similarities}")
-                    logger.info(f"Type of skills similarities: {type(skills_similarities)}")
-                    logger.info(f"First element type: {type(skills_similarities[0])}")
-                    skills_similarity_score = float(skills_similarities[0])
+                    if isinstance(skills_similarities[0], (int, float, np.number)):
+                        skills_similarity_score = float(skills_similarities[0])
+                    else:
+                        logger.warning(f"Unexpected skills similarity type: {type(skills_similarities[0])}")
+                        skills_similarity_score = 0.0
                 except Exception as e:
                     logger.error(f"Skills similarity calculation failed: {e}")
                     logger.error(f"Skills similarities value: {skills_similarities}")
@@ -360,13 +361,21 @@ class PWDMatcher:
                 logger.info(f"Element {i} type: {type(job_similarities[i])}")
                 logger.info(f"Element {i} value: {job_similarities[i]}")
                 
-                job_similarity_score = float(job_similarities[i])
-                combined_similarity = (0.7 * job_similarity_score) + (0.3 * skills_similarity_score)
-                match_strength = self._determine_match_strength(combined_similarity)
+                if isinstance(job_similarities[i], (int, float, np.number)):
+                    job_similarity_score = float(job_similarities[i])
+                    combined_similarity = (0.7 * job_similarity_score) + (0.3 * skills_similarity_score)
+                    match_strength = self._determine_match_strength(combined_similarity)
+                else:
+                    logger.warning(f"Unexpected job similarity type: {type(job_similarities[i])}")
+                    job_similarity_score = 0.0
+                    combined_similarity = 0.0
+                    match_strength = 'Very Weak'
             except Exception as e:
                 logger.error(f"Combined similarity calculation failed: {e}")
                 logger.error(f"Values - job_similarity: {job_similarities[i]}, skills_similarity: {skills_similarity_score}")
-                raise
+                job_similarity_score = 0.0
+                combined_similarity = 0.0
+                match_strength = 'Very Weak'
             
             # Use F.e.3 and F.e.4 for location display
             location_parts = []
