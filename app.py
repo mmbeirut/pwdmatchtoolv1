@@ -346,33 +346,21 @@ class PWDMatcher:
 
                 # Calculate skills similarity
                 skills_similarity_score = 0.0  # Initialize to 0.0 for safety
-                if job_skills_embedding is not None and pwd_skills_texts[i]:
+            
+                # Skip skills similarity calculation if either text is empty
+                if job_skills_embedding is not None and pwd_skills_texts[i] and pwd_skills_texts[i].strip():
                     try:
-                        # Debug logging for embeddings
-                        logger.info(f"Job skills embedding type: {type(job_skills_embedding)}")
-                        logger.info(f"PWD skills embedding type: {type(pwd_skills_embeddings[i])}")
-                        logger.info(f"PWD skills embedding value: {pwd_skills_embeddings[i]}")
-                        
-                        # Ensure pwd_skills_embeddings[i] is a valid numpy array for cosine_similarity
+                        # Ensure pwd_skills_embeddings[i] is a valid numpy array
                         if isinstance(pwd_skills_embeddings[i], np.ndarray):
-                            skills_similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
-                            logger.info(f"Skills similarities type: {type(skills_similarities)}")
-                            logger.info(f"Skills similarities value: {skills_similarities}")
-                            
-                            if isinstance(skills_similarities[0], (int, float, np.number)):
-                                skills_similarity_score = float(skills_similarities[0])
+                            similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
+                            if isinstance(similarities[0], (int, float, np.number)):
+                                skills_similarity_score = float(similarities[0])
                             else:
-                                logger.warning(
-                                    f"Unexpected skills similarity type: {type(skills_similarities[0])} value: {skills_similarities[0]}")
-                                skills_similarity_score = 0.0
+                                logger.warning(f"Invalid similarity value type: {type(similarities[0])}")
                         else:
-                            logger.warning(
-                                f"Invalid embedding type: {type(pwd_skills_embeddings[i])}. Value: {pwd_skills_embeddings[i]}")
-                            skills_similarity_score = 0.0
+                            logger.warning(f"Invalid embedding type: {type(pwd_skills_embeddings[i])}")
                     except Exception as e:
                         logger.error(f"Skills similarity calculation failed: {str(e)}")
-                        logger.error(f"Full error details: {e}")
-                        skills_similarity_score = 0.0
 
                 try:
                     # Combined similarity (weighted average: 70% job description, 30% skills)
