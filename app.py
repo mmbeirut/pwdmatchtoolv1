@@ -332,9 +332,27 @@ class PWDMatcher:
             logger.info(f"pwd_skills_texts before encoding: {pwd_skills_texts}")
             for i, text in enumerate(pwd_skills_texts):
                 logger.info(f"  pwd_skills_texts[{i}] type: {type(text)}, value: '{text}'")
-            pwd_skills_embeddings = self.model.encode(pwd_skills_texts)
+            # Filter out empty texts before encoding
+            valid_skills_texts = [text for text in pwd_skills_texts if text and isinstance(text, str) and text.strip()]
+            if valid_skills_texts:
+                pwd_skills_embeddings = self.model.encode(valid_skills_texts)
+                # Pad with zeros for any empty texts that were filtered out
+                final_embeddings = []
+                skills_text_idx = 0
+                for text in pwd_skills_texts:
+                    if text and isinstance(text, str) and text.strip():
+                        final_embeddings.append(pwd_skills_embeddings[skills_text_idx])
+                        skills_text_idx += 1
+                    else:
+                        # Create zero vector of same dimension as model output
+                        final_embeddings.append(np.zeros_like(pwd_skills_embeddings[0]))
+                pwd_skills_embeddings = np.array(final_embeddings)
+            else:
+                # If no valid texts, create array of zero vectors
+                sample_encoding = self.model.encode(["sample text"])
+                pwd_skills_embeddings = np.zeros((len(pwd_skills_texts), sample_encoding.shape[1]))
+            
             logger.info(f"pwd_skills_embeddings after encoding: {pwd_skills_embeddings}")
-            pwd_skills_embeddings = self.model.encode(pwd_skills_texts)
 
             # Calculate cosine similarities
             job_similarities = cosine_similarity(job_embedding, pwd_embeddings)[0]
@@ -347,12 +365,13 @@ class PWDMatcher:
                 # Calculate skills similarity
                 skills_similarity_score = 0.0  # Initialize to 0.0 for safety
             
-                # Skip skills similarity calculation if either text is empty or invalid
+                # Skip skills similarity calculation for invalid or empty texts
                 if (job_skills_embedding is not None and 
                     pwd_skills_texts[i] and 
                     isinstance(pwd_skills_texts[i], str) and  # Ensure it's a string
                     pwd_skills_texts[i].strip() and  # Ensure it's not empty
-                    isinstance(pwd_skills_embeddings[i], np.ndarray)):  # Ensure embedding is valid
+                    isinstance(pwd_skills_embeddings[i], np.ndarray) and  # Ensure embedding is valid
+                    pwd_skills_embeddings[i].size > 0):  # Ensure embedding is not empty
                     try:
                         similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
                         # Convert any numpy values to Python float
