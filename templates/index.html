@@ -32,24 +32,323 @@
                         </div>
                     </div>
                     
-                    <!-- Rest of the file remains the same until the wage display section -->
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="job_description" class="form-label">Job Description *</label>
+                                <textarea class="form-control" id="job_description" name="job_description" rows="5" required></textarea>
+                            </div>
+                        </div>
+                    </div>
                     
-                    // Wage display with potential warning
-                    var wageHtml = '<p class="card-text"><strong>Prevailing Wage Issued:</strong> ';
-                    if (result.wage_info) {
-                        wageHtml += '$' + result.wage_info.amount + ' per ' + (result.wage_info.period || 'period');
-                        if (result.wage_issue) {
-                            wageHtml += ' <span class="badge bg-danger">⚠️ Wage Issue</span>';
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="education_level" class="form-label">Education Level</label>
+                                <select class="form-select" id="education_level" name="education_level">
+                                    <option value="">Select Education Level</option>
+                                    <option value="None">None</option>
+                                    <option value="High School/GED">High School/GED</option>
+                                    <option value="Associates">Associates</option>
+                                    <option value="Bachelors">Bachelors</option>
+                                    <option value="Masters">Masters</option>
+                                    <option value="Doctorate">Doctorate</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="experience_requirement" class="form-label">Experience Required</label>
+                                <input type="text" class="form-control" id="experience_requirement" name="experience_requirement" placeholder="e.g., 2 years">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="location" class="form-label">Job Location</label>
+                                <input type="text" class="form-control" id="location" name="location" placeholder="City, State">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="salary_range" class="form-label">Salary Range</label>
+                                <input type="text" class="form-control" id="salary_range" name="salary_range" placeholder="e.g., $80,000">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="special_skills" class="form-label">Special Skills</label>
+                                <textarea class="form-control" id="special_skills" name="special_skills" rows="3" placeholder="List any special skills required for the position"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Filter Section -->
+                    <div class="card mt-3 mb-3">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">
+                                <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
+                                    <i class="bi bi-funnel"></i> Filter PWD Results
+                                </button>
+                            </h5>
+                        </div>
+                        <div class="collapse" id="filterCollapse">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Companies</label>
+                                            <select class="form-select" id="filter_companies" name="filter_companies" multiple size="5">
+                                                {% for company in filter_options.companies %}
+                                                <option value="{{ company }}">{{ company }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Locations</label>
+                                            <select class="form-select" id="filter_locations" name="filter_locations" multiple size="5">
+                                                {% for location in filter_options.locations %}
+                                                <option value="{{ location }}">{{ location }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Job Titles</label>
+                                            <select class="form-select" id="filter_job_titles" name="filter_job_titles" multiple size="5">
+                                                {% for title in filter_options.job_titles %}
+                                                <option value="{{ title }}">{{ title }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Case Status</label>
+                                            <select class="form-select" id="filter_case_statuses" name="filter_case_statuses" multiple size="5">
+                                                {% for status in filter_options.case_statuses %}
+                                                <option value="{{ status }}">{{ status }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" id="searchButton">
+                            <i class="bi bi-search"></i> Find Matching PWDs
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Results Section -->
+        <div id="resultsSection" style="display: none;">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="bi bi-list-check"></i> Matching PWD Results</h4>
+                    <span class="badge bg-primary" id="resultCount">0 matches</span>
+                </div>
+                <div class="card-body">
+                    <div id="loadingIndicator" class="text-center p-4" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Searching for matching PWDs...</p>
+                    </div>
+                    <div id="noResults" style="display: none;">
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i> No matching PWDs found. Try adjusting your search criteria.
+                        </div>
+                    </div>
+                    <div id="resultsContainer"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for form handling and results display -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const jobForm = document.getElementById('jobForm');
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const noResults = document.getElementById('noResults');
+        const resultCount = document.getElementById('resultCount');
+        
+        jobForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Show loading indicator
+            loadingIndicator.style.display = 'block';
+            resultsSection.style.display = 'block';
+            resultsContainer.innerHTML = '';
+            noResults.style.display = 'none';
+            
+            // Collect form data
+            const formData = new FormData(jobForm);
+            
+            // Send AJAX request
+            fetch('/search', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading indicator
+                loadingIndicator.style.display = 'none';
+                
+                if (data.success) {
+                    if (data.results.length > 0) {
+                        // Update result count
+                        resultCount.textContent = `${data.results.length} matches`;
+                        if (data.total_found > data.results.length) {
+                            resultCount.textContent += ` (showing top ${data.results.length} of ${data.total_found})`;
                         }
+                        
+                        // Display results
+                        displayResults(data.results);
                     } else {
-                        wageHtml += 'N/A';
+                        // Show no results message
+                        noResults.style.display = 'block';
+                        if (data.message) {
+                            noResults.querySelector('.alert').textContent = data.message;
+                        }
+                        resultCount.textContent = '0 matches';
                     }
-                    wageHtml += '</p>';
-                    html += wageHtml;
-                    
-                    // Rest of the file remains unchanged
+                } else {
+                    // Show error
+                    resultsContainer.innerHTML = `<div class="alert alert-danger">${data.error || 'An error occurred during the search.'}</div>`;
                 }
+            })
+            .catch(error => {
+                loadingIndicator.style.display = 'none';
+                resultsContainer.innerHTML = `<div class="alert alert-danger">Network error: ${error.message}</div>`;
             });
+        });
+        
+        function displayResults(results) {
+            let html = '';
+            
+            results.forEach((result, index) => {
+                // Determine card color based on match strength
+                let cardClass = 'border-secondary';
+                if (result.match_strength === 'Strong') {
+                    cardClass = 'border-success';
+                } else if (result.match_strength === 'Moderate') {
+                    cardClass = 'border-primary';
+                } else if (result.match_strength === 'Weak') {
+                    cardClass = 'border-warning';
+                } else if (result.match_strength === 'Very Weak') {
+                    cardClass = 'border-danger';
+                }
+                
+                html += `
+                <div class="card mb-3 ${cardClass}">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">${result.job_title}</h5>
+                        <div>
+                            <span class="badge bg-secondary">PWD #${result.pwd_case_number}</span>
+                            <span class="badge ${result.case_status === 'Determination Issued' ? 'bg-success' : 'bg-secondary'}">${result.case_status}</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <p class="card-text"><strong>Company:</strong> ${result.company}</p>
+                                <p class="card-text"><strong>Location:</strong> ${result.job_location}</p>
+                                <p class="card-text"><strong>Education Required:</strong> ${result.education_required || 'Not specified'}</p>
+                                <p class="card-text"><strong>Experience Required:</strong> ${result.experience_requirement || 'Not specified'}</p>
+                                
+                                <!-- Wage display with potential warning -->
+                                <p class="card-text"><strong>Prevailing Wage Issued:</strong> 
+                                ${result.wage_info ? '$' + result.wage_info.amount + ' per ' + (result.wage_info.period || 'period') + (result.wage_issue ? ' <span class="badge bg-danger">⚠️ Wage Issue</span>' : '') : 'N/A'}</p>
+                                
+                                ${result.onet_code ? `<p class="card-text"><strong>ONET Code:</strong> ${result.onet_code}</p>` : ''}
+                                ${result.validity_period ? `<p class="card-text"><strong>Validity Period:</strong> ${result.validity_period}</p>` : ''}
+                                ${result.travel_required ? `<p class="card-text"><strong>Travel Required:</strong> ${result.travel_required}</p>` : ''}
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card mb-3">
+                                    <div class="card-header bg-light">Match Analysis</div>
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Overall Match:</span>
+                                            <span class="badge ${
+                                                result.match_strength === 'Strong' ? 'bg-success' : 
+                                                result.match_strength === 'Moderate' ? 'bg-primary' : 
+                                                result.match_strength === 'Weak' ? 'bg-warning' : 'bg-danger'
+                                            }">${result.match_strength}</span>
+                                        </div>
+                                        <div class="progress mb-2" style="height: 20px;">
+                                            <div class="progress-bar" role="progressbar" 
+                                                style="width: ${Math.round(result.similarity_score * 100)}%;" 
+                                                aria-valuenow="${Math.round(result.similarity_score * 100)}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="100">
+                                                ${Math.round(result.similarity_score * 100)}%
+                                            </div>
+                                        </div>
+                                        <div class="small text-muted">
+                                            <div>Job Description: ${Math.round(result.job_similarity * 100)}%</div>
+                                            <div>Skills Match: ${Math.round(result.skills_similarity * 100)}%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#jobDesc${index}">
+                                View Job Description
+                            </button>
+                            ${result.special_skills ? `
+                            <button class="btn btn-sm btn-outline-secondary ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#skills${index}">
+                                View Special Skills
+                            </button>` : ''}
+                        </div>
+                        
+                        <div class="collapse mt-3" id="jobDesc${index}">
+                            <div class="card card-body bg-light">
+                                <h6>Job Description:</h6>
+                                <p>${result.job_description || 'No job description provided.'}</p>
+                                ${result.occupation_requirement ? `
+                                <h6>Occupation Requirements:</h6>
+                                <p>${result.occupation_requirement}</p>` : ''}
+                            </div>
+                        </div>
+                        
+                        ${result.special_skills ? `
+                        <div class="collapse mt-3" id="skills${index}">
+                            <div class="card card-body bg-light">
+                                <h6>Special Skills:</h6>
+                                <p>${result.special_skills}</p>
+                                ${result.alternate_special_skills ? `
+                                <h6>Alternate Special Skills:</h6>
+                                <p>${result.alternate_special_skills}</p>` : ''}
+                            </div>
+                        </div>` : ''}
+                    </div>
+                </div>`;
+            });
+            
+            resultsContainer.innerHTML = html;
         }
     });
 </script>
