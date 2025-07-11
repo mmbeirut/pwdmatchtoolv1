@@ -329,6 +329,11 @@ class PWDMatcher:
             job_embedding = self.model.encode([job_text])
             job_skills_embedding = self.model.encode([job_skills_text]) if job_skills_text else None
             pwd_embeddings = self.model.encode(pwd_texts)
+            logger.info(f"pwd_skills_texts before encoding: {pwd_skills_texts}")
+            for i, text in enumerate(pwd_skills_texts):
+                logger.info(f"  pwd_skills_texts[{i}] type: {type(text)}, value: '{text}'")
+            pwd_skills_embeddings = self.model.encode(pwd_skills_texts)
+            logger.info(f"pwd_skills_embeddings after encoding: {pwd_skills_embeddings}")
             pwd_skills_embeddings = self.model.encode(pwd_skills_texts)
 
             # Calculate cosine similarities
