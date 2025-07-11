@@ -288,7 +288,7 @@ class PWDMatcher:
             logger.info(f"Number of records before company filter: {len(pwd_records)}")
             logger.info(f"Sample of company names in records: {pwd_records['C.1'].head().tolist()}")
 
-            pwd_records = pwd_records[pwd_records['C.1'].str.strip().str.lower() == company_name]
+            pwd_records = pwd_records[pwd_records['C.1'].str.strip().str.lower().str.contains(company_name, na=False)]
 
             logger.info(f"Number of records after company filter: {len(pwd_records)}")
 
