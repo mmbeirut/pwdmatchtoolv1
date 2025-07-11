@@ -383,13 +383,13 @@ class PWDMatcher:
             if pwd.get('Validity Period From') and pwd.get('Validity Period To'):
                 validity_period = f"{pwd['Validity Period From']} to {pwd['Validity Period To']}"
 
-            # Determine travel requirement (convert string 'False' to boolean)
-            travel_required = str(pwd.get('F.d.3.yes', 'False')).lower() == 'true'
-
             # Get ONET code
             onet_code = ''
             if pwd.get('F.d.1') and pwd.get('F.d.1.a'):
                 onet_code = f"{pwd['F.d.1']}-{pwd['F.d.1.a']}"
+
+            # Determine travel requirement for display only (not used in similarity calculation)
+            travel_required = pwd.get('F.d.3.yes') == True
 
             results.append({
                 'pwd_case_number': pwd.get('PWD Case Number', ''),
