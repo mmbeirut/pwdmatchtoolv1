@@ -408,7 +408,7 @@ class PWDMatcher:
                 onet_code = f"{pwd['F.d.1']}-{pwd['F.d.1.a']}"
 
             # Determine travel requirement for display only (not used in similarity calculation)
-            travel_required = pwd.get('F.d.3.yes') == True
+            travel_required = 'Yes' if pwd.get('F.d.3.yes') == True else 'No'
 
             results.append({
                 'pwd_case_number': pwd.get('PWD Case Number', ''),
