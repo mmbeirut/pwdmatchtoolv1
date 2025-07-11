@@ -270,11 +270,11 @@ class DatabaseManager:
             logger.error(f"Failed to get filter options: {e}")
             return {'companies': [], 'locations': [], 'job_titles': []}
 
-    class PWDMatcher:
-        """Handles PWD matching logic using sentence transformers"""
+class PWDMatcher:
+    """Handles PWD matching logic using sentence transformers"""
 
-        def __init__(self, model):
-            self.model = model
+    def __init__(self, model):
+        self.model = model
 
         def calculate_similarity(self, job_data, pwd_records):
             """Calculate similarity scores between job data and PWD records"""
