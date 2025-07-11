@@ -342,12 +342,23 @@ class PWDMatcher:
             # Calculate skills similarity
             skills_similarity_score = 0.0
             if job_skills_embedding is not None and pwd_skills_texts[i]:
-                skills_similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
-                skills_similarity_score = float(skills_similarities[0])
-            
-            # Combined similarity (weighted average: 70% job description, 30% skills)
-            combined_similarity = (0.7 * job_similarity_score) + (0.3 * skills_similarity_score)
-            match_strength = self._determine_match_strength(combined_similarity)
+                try:
+                    skills_similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
+                    skills_similarity_score = float(skills_similarities[0])
+                except Exception as e:
+                    logger.error(f"Skills similarity calculation failed: {e}")
+                    logger.error(f"Skills similarities value: {skills_similarities}")
+                    skills_similarity_score = 0.0
+
+            try:
+                # Combined similarity (weighted average: 70% job description, 30% skills)
+                job_similarity_score = float(job_similarities[i])
+                combined_similarity = (0.7 * job_similarity_score) + (0.3 * skills_similarity_score)
+                match_strength = self._determine_match_strength(combined_similarity)
+            except Exception as e:
+                logger.error(f"Combined similarity calculation failed: {e}")
+                logger.error(f"Values - job_similarity: {job_similarities[i]}, skills_similarity: {skills_similarity_score}")
+                raise
             
             # Use F.e.3 and F.e.4 for location display
             location_parts = []
