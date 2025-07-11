@@ -270,184 +270,204 @@ class DatabaseManager:
             logger.error(f"Failed to get filter options: {e}")
             return {'companies': [], 'locations': [], 'job_titles': []}
 
-class PWDMatcher:
-    """Handles PWD matching logic using sentence transformers"""
-    
-    def __init__(self, model):
-        self.model = model
-    
-    def calculate_similarity(self, job_data, pwd_records):
-        """Calculate similarity scores between job data and PWD records"""
-        if pwd_records.empty:
-            return []
-        
-        # Stage 1: Exact company match if company specified
-        if job_data.get('company'):
-            company_name = job_data['company'].strip().lower()
-            logger.info(f"Searching for company: '{company_name}'")
-            logger.info(f"Number of records before company filter: {len(pwd_records)}")
-            logger.info(f"Sample of company names in records: {pwd_records['C.1'].head().tolist()}")
-            
-            pwd_records = pwd_records[pwd_records['C.1'].str.strip().str.lower() == company_name]
-            
-            logger.info(f"Number of records after company filter: {len(pwd_records)}")
-            
-            if pwd_records.empty:
-                logger.info(f"No exact matches found for company: {job_data['company']}")
-                return []
-        
-        # Stage 2: Calculate similarity on remaining records
-        try:
-            if self.model and SENTENCE_TRANSFORMERS_AVAILABLE:
-                return self._calculate_semantic_similarity(job_data, pwd_records)
-            else:
-                return self._calculate_basic_similarity(job_data, pwd_records)
-            
-        except Exception as e:
-            logger.error(f"Similarity calculation failed: {e}")
-            return []
-    
-    def _calculate_semantic_similarity(self, job_data, pwd_records):
-        """Calculate similarity using sentence transformers"""
-        # Create job description text
-        job_text = self._create_job_text(job_data)
-        job_skills_text = self._create_job_skills_text(job_data)
-        
-        # Create PWD texts
-        pwd_texts = []
-        pwd_skills_texts = []
-        for _, pwd in pwd_records.iterrows():
-            pwd_text = self._create_pwd_text(pwd)
-            pwd_texts.append(pwd_text)
-            pwd_skills_text = self._create_pwd_skills_text(pwd)
-            pwd_skills_texts.append(pwd_skills_text)
-        
-        if not pwd_texts:
-            return []
-        
-        # Calculate embeddings
-        job_embedding = self.model.encode([job_text])
-        job_skills_embedding = self.model.encode([job_skills_text]) if job_skills_text else None
-        pwd_embeddings = self.model.encode(pwd_texts)
-        pwd_skills_embeddings = self.model.encode(pwd_skills_texts)
-        
-        # Calculate cosine similarities
-        job_similarities = cosine_similarity(job_embedding, pwd_embeddings)[0]
-        
-        # Create results with similarity scores
-        results = []
-        for i, (_, pwd) in enumerate(pwd_records.iterrows()):
-            job_similarity_score = float(job_similarities[i])
-            
-            # Calculate skills similarity
-            skills_similarity_score = 0.0
-            if job_skills_embedding is not None and pwd_skills_texts[i]:
-                try:
-                    skills_similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
-                    if isinstance(skills_similarities[0], (int, float, np.number)):
-                        skills_similarity_score = float(skills_similarities[0])
-                    else:
-                        logger.warning(f"Unexpected skills similarity type: {type(skills_similarities[0])}")
-                        skills_similarity_score = 0.0
-                except Exception as e:
-                    logger.error(f"Skills similarity calculation failed: {e}")
-                    logger.error(f"Skills similarities value: {skills_similarities}")
-                    skills_similarity_score = 0.0
+    class PWDMatcher:
+        """Handles PWD matching logic using sentence transformers"""
 
+        def __init__(self, model):
+            self.model = model
+
+        def calculate_similarity(self, job_data, pwd_records):
+            """Calculate similarity scores between job data and PWD records"""
+            if pwd_records.empty:
+                return []
+
+            # Stage 1: Exact company match if company specified
+            if job_data.get('company'):
+                company_name = job_data['company'].strip().lower()
+                logger.info(f"Searching for company: '{company_name}'")
+                logger.info(f"Number of records before company filter: {len(pwd_records)}")
+                logger.info(f"Sample of company names in records: {pwd_records['C.1'].head().tolist()}")
+
+                pwd_records = pwd_records[pwd_records['C.1'].str.strip().str.lower() == company_name]
+
+                logger.info(f"Number of records after company filter: {len(pwd_records)}")
+
+                if pwd_records.empty:
+                    logger.info(f"No exact matches found for company: {job_data['company']}")
+                    return []
+
+            # Stage 2: Calculate similarity on remaining records
             try:
-                # Combined similarity (weighted average: 70% job description, 30% skills)
-                logger.info(f"Raw job similarities: {job_similarities}")
-                logger.info(f"Type of job similarities: {type(job_similarities)}")
-                logger.info(f"Element {i} type: {type(job_similarities[i])}")
-                logger.info(f"Element {i} value: {job_similarities[i]}")
-                
-                if isinstance(job_similarities[i], (int, float, np.number)):
-                    job_similarity_score = float(job_similarities[i])
-                    combined_similarity = (0.7 * job_similarity_score) + (0.3 * skills_similarity_score)
-                    match_strength = self._determine_match_strength(combined_similarity)
+                if self.model and SENTENCE_TRANSFORMERS_AVAILABLE:
+                    return self._calculate_semantic_similarity(job_data, pwd_records)
                 else:
-                    logger.warning(f"Unexpected job similarity type: {type(job_similarities[i])}")
-                    job_similarity_score = 0.0
+                    return self._calculate_basic_similarity(job_data, pwd_records)
+
+            except Exception as e:
+                logger.error(f"Similarity calculation failed: {e}")
+                return []
+
+        def _calculate_semantic_similarity(self, job_data, pwd_records):
+            """Calculate similarity using sentence transformers"""
+            # Create job description text
+            job_text = self._create_job_text(job_data)
+            job_skills_text = self._create_job_skills_text(job_data)
+
+            # Create PWD texts
+            pwd_texts = []
+            pwd_skills_texts = []
+            for _, pwd in pwd_records.iterrows():
+                pwd_text = self._create_pwd_text(pwd)
+                pwd_texts.append(pwd_text)
+                pwd_skills_text = self._create_pwd_skills_text(pwd)
+                pwd_skills_texts.append(pwd_skills_text)
+
+            if not pwd_texts:
+                return []
+
+            # Calculate embeddings
+            job_embedding = self.model.encode([job_text])
+            job_skills_embedding = self.model.encode([job_skills_text]) if job_skills_text else None
+            pwd_embeddings = self.model.encode(pwd_texts)
+            pwd_skills_embeddings = self.model.encode(pwd_skills_texts)
+
+            # Calculate cosine similarities
+            job_similarities = cosine_similarity(job_embedding, pwd_embeddings)[0]
+
+            # Create results with similarity scores
+            results = []
+            for i, (_, pwd) in enumerate(pwd_records.iterrows()):
+                job_similarity_score = float(job_similarities[i])
+
+                # Calculate skills similarity
+                skills_similarity_score = 0.0  # Initialize to 0.0 for safety
+                if job_skills_embedding is not None and pwd_skills_texts[i]:
+                    try:
+                        # Ensure pwd_skills_embeddings[i] is a valid numpy array for cosine_similarity
+                        if isinstance(pwd_skills_embeddings[i], np.ndarray):
+                            skills_similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
+                            if isinstance(skills_similarities[0], (int, float, np.number)):
+                                skills_similarity_score = float(skills_similarities[0])
+                            else:
+                                # Log unexpected type if it's not a number, but ensure it defaults to 0.0
+                                logger.warning(
+                                    f"Unexpected skills similarity type after cosine_similarity for record {i}: {type(skills_similarities[0])} value: {skills_similarities[0]}")
+                                skills_similarity_score = 0.0
+                        else:
+                            # Log if the embedding itself isn't a numpy array (unexpected state)
+                            logger.warning(
+                                f"pwd_skills_embeddings[{i}] for record {i} is not a numpy array. Type: {type(pwd_skills_embeddings[i])}. Defaulting skills_similarity_score to 0.0.")
+                            skills_similarity_score = 0.0
+                    except Exception as e:
+                        logger.error(
+                            f"Skills similarity calculation failed for record {i}: {e}. Defaulting skills_similarity_score to 0.0.")
+                        skills_similarity_score = 0.0  # Ensure it's a float even on error
+
+                try:
+                    # Combined similarity (weighted average: 70% job description, 30% skills)
+                    # Ensure job_similarity_score is numeric before calculation
+                    if isinstance(job_similarity_score, (int, float, np.number)):
+                        combined_similarity = (0.7 * job_similarity_score) + (0.3 * skills_similarity_score)
+                        match_strength = self._determine_match_strength(combined_similarity)
+                    else:
+                        # This case should ideally not be hit if job_similarities[i] is always numeric
+                        logger.warning(
+                            f"Unexpected job_similarity_score type before combined calculation for record {i}: {type(job_similarity_score)}. Defaulting combined_similarity to 0.0.")
+                        combined_similarity = 0.0
+                        match_strength = 'Very Weak'
+                except Exception as e:
+                    logger.error(f"Combined similarity calculation failed for record {i}: {e}")
+                    logger.error(
+                        f"Values - job_similarity: {job_similarity_score}, skills_similarity: {skills_similarity_score}")
                     combined_similarity = 0.0
                     match_strength = 'Very Weak'
-            except Exception as e:
-                logger.error(f"Combined similarity calculation failed: {e}")
-                logger.error(f"Values - job_similarity: {job_similarities[i]}, skills_similarity: {skills_similarity_score}")
-                job_similarity_score = 0.0
-                combined_similarity = 0.0
-                match_strength = 'Very Weak'
-            
-            # Use F.e.3 and F.e.4 for location display
-            location_parts = []
-            if pwd.get('F.e.3'):
-                location_parts.append(pwd['F.e.3'])
-            if pwd.get('F.e.4'):
-                location_parts.append(pwd['F.e.4'])
-            job_location = ' '.join(location_parts) if location_parts else pwd.get('F.e.1', '')
-            
-            # Get wage info and check for wage issues
-            wage_info = self._get_wage_info(pwd)
-            wage_issue = False
-            if wage_info and job_data.get('salary_range'):
-                try:
-                    job_salary = float(''.join(c for c in job_data['salary_range'] if c.isdigit() or c == '.'))
-                    if job_salary > float(wage_info.get('amount', 0)):
-                        wage_issue = True
-                except (ValueError, TypeError):
-                    pass
 
-            # Combine job description fields
-            job_desc = pwd.get('F.a.2', '')
-            if pwd.get('Addendum_F.a.2'):
-                job_desc += ' ' + pwd['Addendum_F.a.2']
+                # Use F.e.3 and F.e.4 for location display
+                location_parts = []
+                if pwd.get('F.e.3'):
+                    location_parts.append(pwd['F.e.3'])
+                if pwd.get('F.e.4'):
+                    location_parts.append(pwd['F.e.4'])
+                job_location = ' '.join(location_parts) if location_parts else pwd.get('F.e.1', '')
 
-            # Combine occupation requirement fields
-            occupation_req = pwd.get('F.b.4.b', '')
-            if pwd.get('Addendum_F.b.4.b'):
-                occupation_req += ' ' + pwd['Addendum_F.b.4.b']
+                # Get wage info and check for wage issues
+                wage_info = self._get_wage_info(pwd)
+                wage_issue = False
+                if wage_info and job_data.get('salary_range'):
+                    try:
+                        # Extract only digits and period for salary conversion
+                        job_salary = float(''.join(c for c in job_data['salary_range'] if c.isdigit() or c == '.'))
+                        if 'amount' in wage_info and wage_info['amount'] is not None:
+                            if job_salary > float(wage_info.get('amount', 0)):
+                                wage_issue = True
+                    except (ValueError, TypeError) as e:
+                        logger.warning(
+                            f"Failed to parse job salary or compare with wage info: {job_data['salary_range']} vs {wage_info.get('amount', 'N/A')}. Error: {e}")
+                        pass  # Keep wage_issue as False
 
-            # Get validity period
-            validity_period = ''
-            if pwd.get('Validity Period From') and pwd.get('Validity Period To'):
-                validity_period = f"{pwd['Validity Period From']} to {pwd['Validity Period To']}"
+                # Combine job description fields
+                job_desc = pwd.get('F.a.2', '')
+                if pwd.get('Addendum_F.a.2'):
+                    # Ensure concatenation is safe, e.g., if one is None
+                    job_desc = f"{job_desc} {pwd['Addendum_F.a.2']}" if job_desc else pwd['Addendum_F.a.2']
 
-            # Get ONET code
-            onet_code = ''
-            if pwd.get('F.d.1') and pwd.get('F.d.1.a'):
-                onet_code = f"{pwd['F.d.1']}-{pwd['F.d.1.a']}"
+                # Combine occupation requirement fields
+                occupation_req = pwd.get('F.b.4.b', '')
+                if pwd.get('Addendum_F.b.4.b'):
+                    # Ensure concatenation is safe
+                    occupation_req = f"{occupation_req} {pwd['Addendum_F.b.4.b']}" if occupation_req else pwd[
+                        'Addendum_F.b.4.b']
 
-            # Create result dictionary with all fields
-            result_dict = {
-                'pwd_case_number': pwd.get('PWD Case Number', ''),
-                'company': pwd.get('C.1', ''),
-                'job_title': pwd.get('F.a.1', ''),
-                'job_location': job_location,
-                'job_description': job_desc,
-                'education_required': self._get_education_level(pwd),
-                'experience_requirement': pwd.get('F.b.4.a', ''),
-                'alternate_experience': pwd.get('F.c.4.a', ''),
-                'occupation_requirement': occupation_req,
-                'special_skills': pwd.get('Addendum_F.b.5.a(iv)', ''),
-                'alternate_special_skills': pwd.get('Addendum_F.c.5.a(iv)', ''),
-                'similarity_score': combined_similarity,
-                'job_similarity': job_similarity_score,
-                'skills_similarity': skills_similarity_score,
-                'match_strength': match_strength,
-                'wage_info': wage_info,
-                'wage_issue': wage_issue,
-                'case_status': pwd.get('Case Status', ''),
-                'onet_code': onet_code,
-                'validity_period': validity_period
-            }
+                # Get validity period
+                validity_period = ''
+                if pwd.get('Validity Period From') and pwd.get('Validity Period To'):
+                    validity_period = f"{pwd['Validity Period From']} to {pwd['Validity Period To']}"
 
-            # Add travel requirement as display-only field (not used in similarity calculation)
-            result_dict['travel_required'] = 'Yes' if pwd.get('F.d.3.yes') == True else 'No'
+                # Get ONET code
+                onet_code = ''
+                # Check for non-null/non-empty strings before concatenating
+                f_d_1 = str(pwd['F.d.1']) if pd.notnull(pwd.get('F.d.1')) else ''
+                f_d_1_a = str(pwd['F.d.1.a']) if pd.notnull(pwd.get('F.d.1.a')) else ''
+                if f_d_1 and f_d_1_a:
+                    onet_code = f"{f_d_1}-{f_d_1_a}"
+                elif f_d_1:
+                    onet_code = f_d_1
+                elif f_d_1_a:
+                    onet_code = f_d_1_a
 
-            results.append(result_dict)
-        
-        # Sort by similarity score (highest first)
-        results.sort(key=lambda x: x['similarity_score'], reverse=True)
-        return results
+                # Create result dictionary with all fields
+                result_dict = {
+                    'pwd_case_number': pwd.get('PWD Case Number', ''),
+                    'company': pwd.get('C.1', ''),
+                    'job_title': pwd.get('F.a.1', ''),
+                    'job_location': job_location,
+                    'job_description': job_desc.strip(),  # Use strip to clean up leading/trailing spaces
+                    'education_required': self._get_education_level(pwd),
+                    'experience_requirement': pwd.get('F.b.4.a', ''),
+                    'alternate_experience': pwd.get('F.c.4.a', ''),
+                    'occupation_requirement': occupation_req.strip(),  # Use strip to clean up
+                    'special_skills': pwd.get('Addendum_F.b.5.a(iv)', ''),
+                    'alternate_special_skills': pwd.get('Addendum_F.c.5.a(iv)', ''),
+                    'similarity_score': combined_similarity,
+                    'job_similarity': job_similarity_score,
+                    'skills_similarity': skills_similarity_score,
+                    'match_strength': match_strength,
+                    'wage_info': wage_info,
+                    'wage_issue': wage_issue,
+                    'case_status': pwd.get('Case Status', ''),
+                    'onet_code': onet_code,
+                    'validity_period': validity_period
+                }
+
+                # Add travel requirement as display-only field (not used in similarity calculation)
+                # Use .get() with default False for boolean fields
+                result_dict['travel_required'] = 'Yes' if pwd.get('F.d.3.yes', False) is True else 'No'
+
+                results.append(result_dict)
+
+            # Sort by similarity score (highest first)
+            results.sort(key=lambda x: x['similarity_score'], reverse=True)
+            return results
     
     def _calculate_basic_similarity(self, job_data, pwd_records):
         """Calculate basic text similarity without sentence transformers"""
