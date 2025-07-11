@@ -332,25 +332,23 @@ class PWDMatcher:
             logger.info(f"pwd_skills_texts before encoding: {pwd_skills_texts}")
             for i, text in enumerate(pwd_skills_texts):
                 logger.info(f"  pwd_skills_texts[{i}] type: {type(text)}, value: '{text}'")
-            # Filter out empty texts before encoding
-            valid_skills_texts = [text for text in pwd_skills_texts if text and isinstance(text, str) and text.strip()]
-            if valid_skills_texts:
-                pwd_skills_embeddings = self.model.encode(valid_skills_texts)
-                # Pad with zeros for any empty texts that were filtered out
-                final_embeddings = []
-                skills_text_idx = 0
-                for text in pwd_skills_texts:
-                    if text and isinstance(text, str) and text.strip():
-                        final_embeddings.append(pwd_skills_embeddings[skills_text_idx])
-                        skills_text_idx += 1
+            # Create embeddings only for non-empty texts
+            pwd_skills_embeddings = []
+            for text in pwd_skills_texts:
+                if text and isinstance(text, str) and text.strip():
+                    # Encode valid text
+                    embedding = self.model.encode([text])[0]
+                else:
+                    # Create zero vector for empty/invalid text
+                    if not pwd_skills_embeddings:
+                        # Get dimensions from a sample encoding
+                        sample_encoding = self.model.encode(["sample text"])
+                        zero_vector = np.zeros(sample_encoding.shape[1])
                     else:
-                        # Create zero vector of same dimension as model output
-                        final_embeddings.append(np.zeros_like(pwd_skills_embeddings[0]))
-                pwd_skills_embeddings = np.array(final_embeddings)
-            else:
-                # If no valid texts, create array of zero vectors
-                sample_encoding = self.model.encode(["sample text"])
-                pwd_skills_embeddings = np.zeros((len(pwd_skills_texts), sample_encoding.shape[1]))
+                        zero_vector = np.zeros_like(pwd_skills_embeddings[0])
+                    embedding = zero_vector
+                pwd_skills_embeddings.append(embedding)
+            pwd_skills_embeddings = np.array(pwd_skills_embeddings)
             
             logger.info(f"pwd_skills_embeddings after encoding: {pwd_skills_embeddings}")
 
