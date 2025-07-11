@@ -407,10 +407,8 @@ class PWDMatcher:
             if pwd.get('F.d.1') and pwd.get('F.d.1.a'):
                 onet_code = f"{pwd['F.d.1']}-{pwd['F.d.1.a']}"
 
-            # Determine travel requirement for display only (not used in similarity calculation)
-            travel_required = 'Yes' if pwd.get('F.d.3.yes') == True else 'No'
-
-            results.append({
+            # Create result dictionary with all fields
+            result_dict = {
                 'pwd_case_number': pwd.get('PWD Case Number', ''),
                 'company': pwd.get('C.1', ''),
                 'job_title': pwd.get('F.a.1', ''),
@@ -430,9 +428,13 @@ class PWDMatcher:
                 'wage_issue': wage_issue,
                 'case_status': pwd.get('Case Status', ''),
                 'onet_code': onet_code,
-                'travel_required': travel_required,
                 'validity_period': validity_period
-            })
+            }
+
+            # Add travel requirement as display-only field (not used in similarity calculation)
+            result_dict['travel_required'] = 'Yes' if pwd.get('F.d.3.yes') == True else 'No'
+
+            results.append(result_dict)
         
         # Sort by similarity score (highest first)
         results.sort(key=lambda x: x['similarity_score'], reverse=True)
