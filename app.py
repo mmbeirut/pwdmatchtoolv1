@@ -276,7 +276,7 @@ class PWDMatcher:
     def __init__(self, model):
         self.model = model
 
-        def calculate_similarity(self, job_data, pwd_records):
+    def calculate_similarity(self, job_data, pwd_records):
             """Calculate similarity scores between job data and PWD records"""
             if pwd_records.empty:
                 return []
