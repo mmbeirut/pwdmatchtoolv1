@@ -55,9 +55,25 @@
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label for="experience_required" class="form-label">Experience Required</label>
-                                <input type="text" class="form-control" id="experience_required" name="experience_required" 
-                                       placeholder="e.g., 3 years, 5+ years">
+                                <label for="experience_requirement" class="form-label">Experience Requirement</label>
+                                <input type="number" class="form-control" id="experience_requirement" name="experience_requirement" 
+                                       placeholder="Enter number of months">
+                                <small class="text-muted">Enter total months (e.g. 48 for 4 years)</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="alternate_experience" class="form-label">Alternate Experience Requirement</label>
+                                <input type="number" class="form-control" id="alternate_experience" name="alternate_experience" 
+                                       placeholder="Enter number of months">
+                                <small class="text-muted">Enter total months (e.g. 48 for 4 years)</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="occupation_requirement" class="form-label">Occupation Requirement</label>
+                                <input type="text" class="form-control" id="occupation_requirement" name="occupation_requirement" 
+                                       placeholder="Enter occupation requirements">
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -79,9 +95,16 @@
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="skills" class="form-label">Required Skills</label>
-                                <input type="text" class="form-control" id="skills" name="skills" 
-                                       placeholder="Programming languages, certifications, etc.">
+                                <label for="special_skills" class="form-label">Special Skills Requirement</label>
+                                <input type="text" class="form-control" id="special_skills" name="special_skills" 
+                                       placeholder="Enter special skills requirements">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="alternate_special_skills" class="form-label">Alternate Special Skills Requirement</label>
+                                <input type="text" class="form-control" id="alternate_special_skills" name="alternate_special_skills" 
+                                       placeholder="Enter alternate special skills">
                             </div>
                         </div>
                     </div>
@@ -277,28 +300,25 @@ $(document).ready(function() {
                 html += '<div class="col-md-8">';
                 html += '<h5 class="card-title">' + (result.job_title || 'N/A') + '</h5>';
                 html += '<h6 class="card-subtitle mb-2 text-muted">' + (result.company || 'N/A') + '</h6>';
-                html += '<p class="card-text"><strong>Location:</strong> ' + (result.job_location || 'N/A') + '</p>';
-                html += '<p class="card-text"><strong>PWD Case:</strong> ' + (result.pwd_case_number || 'N/A') + '</p>';
+                html += '<p class="card-text"><strong>Case Number:</strong> ' + (result.pwd_case_number || 'N/A') + '</p>';
                 html += '<p class="card-text"><strong>Case Status:</strong> ' + (result.case_status || 'N/A') + '</p>';
+                html += '<p class="card-text"><strong>Work Location:</strong> ' + (result.job_location || 'N/A') + '</p>';
+                html += '<p class="card-text"><strong>Experience Requirement:</strong> ' + (result.experience_requirement || 'N/A') + '</p>';
+                html += '<p class="card-text"><strong>Alternate Experience:</strong> ' + (result.alternate_experience || 'N/A') + '</p>';
+                html += '<p class="card-text"><strong>Occupation Requirement:</strong> ' + (result.occupation_requirement || 'N/A') + '</p>';
                 
-                if (result.job_description) {
-                    var shortDesc = result.job_description.length > 200 ? 
-                        result.job_description.substring(0, 200) + '...' : result.job_description;
-                    html += '<p class="card-text"><strong>Description:</strong> ' + shortDesc + '</p>';
+                // Wage display with potential warning
+                var wageHtml = '<p class="card-text"><strong>Issued Wage Required:</strong> ';
+                if (result.wage_info) {
+                    wageHtml += '$' + result.wage_info.amount + ' per ' + (result.wage_info.period || 'period');
+                    if (result.wage_issue) {
+                        wageHtml += ' <span class="badge bg-danger">⚠️ Wage Issue</span>';
+                    }
+                } else {
+                    wageHtml += 'N/A';
                 }
-                
-                if (result.education_required) {
-                    html += '<p class="card-text"><strong>Education:</strong> ' + result.education_required + '</p>';
-                }
-                
-                if (result.experience_required) {
-                    html += '<p class="card-text"><strong>Experience:</strong> ' + result.experience_required + '</p>';
-                }
-                
-                if (result.wage_info && result.wage_info.amount) {
-                    html += '<p class="card-text"><strong>Wage:</strong> $' + result.wage_info.amount + 
-                           ' per ' + (result.wage_info.period || 'period') + '</p>';
-                }
+                wageHtml += '</p>';
+                html += wageHtml;
                 
                 html += '</div>';
                 html += '<div class="col-md-4 text-end">';
@@ -306,10 +326,36 @@ $(document).ready(function() {
                 html += scorePercent + '%</div>';
                 html += '<div class="badge bg-' + getMatchBadgeColor(result.match_strength) + '">';
                 html += result.match_strength + ' Match</div>';
+                html += '<button class="btn btn-sm btn-outline-primary mt-2" onclick="showDetails(' + index + ')">';
+                html += '<i class="bi bi-arrows-expand"></i> View Details</button>';
                 html += '</div>';
                 html += '</div>';
                 html += '</div>';
                 html += '</div>';
+                
+                // Hidden modal for expanded view
+                html += '<div class="modal fade" id="detailsModal' + index + '" tabindex="-1">';
+                html += '<div class="modal-dialog modal-lg"><div class="modal-content">';
+                html += '<div class="modal-header">';
+                html += '<h5 class="modal-title">PWD Details - ' + (result.pwd_case_number || 'N/A') + '</h5>';
+                html += '<button type="button" class="btn-close" data-bs-dismiss="modal"></button>';
+                html += '</div>';
+                html += '<div class="modal-body">';
+                html += '<dl class="row">';
+                html += '<dt class="col-sm-4">Company</dt><dd class="col-sm-8">' + (result.company || 'N/A') + '</dd>';
+                html += '<dt class="col-sm-4">Case Number</dt><dd class="col-sm-8">' + (result.pwd_case_number || 'N/A') + '</dd>';
+                html += '<dt class="col-sm-4">Case Status</dt><dd class="col-sm-8">' + (result.case_status || 'N/A') + '</dd>';
+                html += '<dt class="col-sm-4">Job Title</dt><dd class="col-sm-8">' + (result.job_title || 'N/A') + '</dd>';
+                html += '<dt class="col-sm-4">Work Location</dt><dd class="col-sm-8">' + (result.job_location || 'N/A') + '</dd>';
+                html += '<dt class="col-sm-4">Experience Requirement</dt><dd class="col-sm-8">' + (result.experience_requirement || 'N/A') + '</dd>';
+                html += '<dt class="col-sm-4">Alternate Experience</dt><dd class="col-sm-8">' + (result.alternate_experience || 'N/A') + '</dd>';
+                html += '<dt class="col-sm-4">Occupation Requirement</dt><dd class="col-sm-8">' + (result.occupation_requirement || 'N/A') + '</dd>';
+                html += '<dt class="col-sm-4">ONET Code</dt><dd class="col-sm-8">' + (result.onet_code || 'N/A') + '</dd>';
+                html += '<dt class="col-sm-4">Travel Required</dt><dd class="col-sm-8">' + (result.travel_required ? 'Yes' : 'No') + '</dd>';
+                html += '<dt class="col-sm-4">Validity Period</dt><dd class="col-sm-8">' + (result.validity_period || 'N/A') + '</dd>';
+                html += '<dt class="col-sm-4">Job Description</dt><dd class="col-sm-8">' + (result.job_description || 'N/A') + '</dd>';
+                html += '</dl>';
+                html += '</div></div></div></div>';
             });
             
             $('#results-container').html(html);
