@@ -344,6 +344,9 @@ class PWDMatcher:
             if job_skills_embedding is not None and pwd_skills_texts[i]:
                 try:
                     skills_similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
+                    logger.info(f"Raw skills similarities: {skills_similarities}")
+                    logger.info(f"Type of skills similarities: {type(skills_similarities)}")
+                    logger.info(f"First element type: {type(skills_similarities[0])}")
                     skills_similarity_score = float(skills_similarities[0])
                 except Exception as e:
                     logger.error(f"Skills similarity calculation failed: {e}")
@@ -352,6 +355,11 @@ class PWDMatcher:
 
             try:
                 # Combined similarity (weighted average: 70% job description, 30% skills)
+                logger.info(f"Raw job similarities: {job_similarities}")
+                logger.info(f"Type of job similarities: {type(job_similarities)}")
+                logger.info(f"Element {i} type: {type(job_similarities[i])}")
+                logger.info(f"Element {i} value: {job_similarities[i]}")
+                
                 job_similarity_score = float(job_similarities[i])
                 combined_similarity = (0.7 * job_similarity_score) + (0.3 * skills_similarity_score)
                 match_strength = self._determine_match_strength(combined_similarity)
