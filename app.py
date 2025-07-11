@@ -598,10 +598,19 @@ class PWDMatcher:
     def _create_pwd_skills_text(self, pwd):
         """Create searchable text from PWD skills data"""
         skills_parts = []
-        if pwd.get('Addendum4'):
-            skills_parts.append(pwd['Addendum4'])
-        if pwd.get('Addendum6'):
-            skills_parts.append(pwd['Addendum6'])
+        
+        # Safely handle Addendum4
+        addendum4 = pwd.get('Addendum4')
+        if addendum4 is not None and addendum4 != False:
+            skills_parts.append(str(addendum4).strip())
+            
+        # Safely handle Addendum6
+        addendum6 = pwd.get('Addendum6')
+        if addendum6 is not None and addendum6 != False:
+            skills_parts.append(str(addendum6).strip())
+        
+        # Only join non-empty strings
+        skills_parts = [part for part in skills_parts if part]
         
         if skills_parts:
             return f"Skills: {' '.join(skills_parts)}"
