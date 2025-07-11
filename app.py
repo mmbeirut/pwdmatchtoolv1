@@ -633,11 +633,16 @@ class PWDMatcher:
         
         # Get G.5 wage amount if available
         g5_amount = None
-        if pwd.get('G.5') and pwd['G.5'].lower() != 'n/a':
+        if pwd.get('G.5'):
+            # Replace 'N/A', 'na', etc. with '0'
+            g5_value = pwd['G.5']
+            if isinstance(g5_value, str) and g5_value.lower() in ['n/a', 'na', '']:
+                g5_value = '0'
             try:
-                g5_amount = float(pwd['G.5'])
+                g5_amount = float(g5_value)
             except (ValueError, TypeError):
-                pass
+                logger.warning(f"Could not convert G.5 wage to float: {g5_value}")
+                g5_amount = 0.0
         
         # Use the higher of G.4 and G.5
         if g4_amount is not None and g5_amount is not None:
