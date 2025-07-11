@@ -351,20 +351,62 @@ class PWDMatcher:
                 location_parts.append(pwd['F.e.4'])
             job_location = ' '.join(location_parts) if location_parts else pwd.get('F.e.1', '')
             
+            # Get wage info and check for wage issues
+            wage_info = self._get_wage_info(pwd)
+            wage_issue = False
+            if wage_info and job_data.get('salary_range'):
+                try:
+                    job_salary = float(''.join(c for c in job_data['salary_range'] if c.isdigit() or c == '.'))
+                    if job_salary > float(wage_info.get('amount', 0)):
+                        wage_issue = True
+                except (ValueError, TypeError):
+                    pass
+
+            # Combine job description fields
+            job_desc = pwd.get('F.a.2', '')
+            if pwd.get('Addendum_F.a.2'):
+                job_desc += ' ' + pwd['Addendum_F.a.2']
+
+            # Combine occupation requirement fields
+            occupation_req = pwd.get('F.b.4.b', '')
+            if pwd.get('Addendum_F.b.4.b'):
+                occupation_req += ' ' + pwd['Addendum_F.b.4.b']
+
+            # Get validity period
+            validity_period = ''
+            if pwd.get('Validity Period From') and pwd.get('Validity Period To'):
+                validity_period = f"{pwd['Validity Period From']} to {pwd['Validity Period To']}"
+
+            # Determine travel requirement
+            travel_required = pwd.get('F.d.3.yes', False)
+
+            # Get ONET code
+            onet_code = ''
+            if pwd.get('F.d.1') and pwd.get('F.d.1.a'):
+                onet_code = f"{pwd['F.d.1']}-{pwd['F.d.1.a']}"
+
             results.append({
                 'pwd_case_number': pwd.get('PWD Case Number', ''),
                 'company': pwd.get('C.1', ''),
                 'job_title': pwd.get('F.a.1', ''),
                 'job_location': job_location,
-                'job_description': pwd.get('F.a.2', ''),
+                'job_description': job_desc,
                 'education_required': self._get_education_level(pwd),
-                'experience_required': pwd.get('F.b.4.a', ''),
+                'experience_requirement': pwd.get('F.b.4.a', ''),
+                'alternate_experience': pwd.get('F.c.4.a', ''),
+                'occupation_requirement': occupation_req,
+                'special_skills': pwd.get('Addendum_F.b.5.a(iv)', ''),
+                'alternate_special_skills': pwd.get('Addendum_F.c.5.a(iv)', ''),
                 'similarity_score': combined_similarity,
                 'job_similarity': job_similarity_score,
                 'skills_similarity': skills_similarity_score,
                 'match_strength': match_strength,
-                'wage_info': self._get_wage_info(pwd),
-                'case_status': pwd.get('Case Status', '')
+                'wage_info': wage_info,
+                'wage_issue': wage_issue,
+                'case_status': pwd.get('Case Status', ''),
+                'onet_code': onet_code,
+                'travel_required': travel_required,
+                'validity_period': validity_period
             })
         
         # Sort by similarity score (highest first)
@@ -523,13 +565,34 @@ class PWDMatcher:
         """Extract wage information from PWD record"""
         wage_info = {}
         
-        # Get wage amount and period
+        # Get G.4 wage amount and period
+        g4_amount = None
+        g4_period = None
         for period in ['Hour', 'Week', 'BiWeekly', 'Month', 'Year']:
             field = f'G.4.a.{period}'
             if pwd.get(field):
-                wage_info['amount'] = pwd[field]
-                wage_info['period'] = period
+                g4_amount = float(pwd[field])
+                g4_period = period
                 break
+        
+        # Get G.5 wage amount if available
+        g5_amount = None
+        if pwd.get('G.5') and pwd['G.5'].lower() != 'n/a':
+            try:
+                g5_amount = float(pwd['G.5'])
+            except (ValueError, TypeError):
+                pass
+        
+        # Use the higher of G.4 and G.5
+        if g4_amount is not None and g5_amount is not None:
+            wage_info['amount'] = max(g4_amount, g5_amount)
+            wage_info['period'] = g4_period
+        elif g4_amount is not None:
+            wage_info['amount'] = g4_amount
+            wage_info['period'] = g4_period
+        elif g5_amount is not None:
+            wage_info['amount'] = g5_amount
+            wage_info['period'] = 'Year'  # G.5 is typically annual
         
         # Get wage source
         wage_sources = {
@@ -596,8 +659,11 @@ def search_pwds():
             'job_title': request.form.get('job_title', ''),
             'job_description': request.form.get('job_description', ''),
             'education_level': request.form.get('education_level', ''),
-            'experience_required': request.form.get('experience_required', ''),
-            'skills': request.form.get('skills', ''),
+            'experience_requirement': request.form.get('experience_requirement', ''),
+            'alternate_experience': request.form.get('alternate_experience', ''),
+            'occupation_requirement': request.form.get('occupation_requirement', ''),
+            'special_skills': request.form.get('special_skills', ''),
+            'alternate_special_skills': request.form.get('alternate_special_skills', ''),
             'location': request.form.get('location', ''),
             'company': request.form.get('company', ''),
             'salary_range': request.form.get('salary_range', '')
