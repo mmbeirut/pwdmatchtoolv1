@@ -343,25 +343,31 @@ class PWDMatcher:
                 skills_similarity_score = 0.0  # Initialize to 0.0 for safety
                 if job_skills_embedding is not None and pwd_skills_texts[i]:
                     try:
+                        # Debug logging for embeddings
+                        logger.info(f"Job skills embedding type: {type(job_skills_embedding)}")
+                        logger.info(f"PWD skills embedding type: {type(pwd_skills_embeddings[i])}")
+                        logger.info(f"PWD skills embedding value: {pwd_skills_embeddings[i]}")
+                        
                         # Ensure pwd_skills_embeddings[i] is a valid numpy array for cosine_similarity
                         if isinstance(pwd_skills_embeddings[i], np.ndarray):
                             skills_similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
+                            logger.info(f"Skills similarities type: {type(skills_similarities)}")
+                            logger.info(f"Skills similarities value: {skills_similarities}")
+                            
                             if isinstance(skills_similarities[0], (int, float, np.number)):
                                 skills_similarity_score = float(skills_similarities[0])
                             else:
-                                # Log unexpected type if it's not a number, but ensure it defaults to 0.0
                                 logger.warning(
-                                    f"Unexpected skills similarity type after cosine_similarity for record {i}: {type(skills_similarities[0])} value: {skills_similarities[0]}")
+                                    f"Unexpected skills similarity type: {type(skills_similarities[0])} value: {skills_similarities[0]}")
                                 skills_similarity_score = 0.0
                         else:
-                            # Log if the embedding itself isn't a numpy array (unexpected state)
                             logger.warning(
-                                f"pwd_skills_embeddings[{i}] for record {i} is not a numpy array. Type: {type(pwd_skills_embeddings[i])}. Defaulting skills_similarity_score to 0.0.")
+                                f"Invalid embedding type: {type(pwd_skills_embeddings[i])}. Value: {pwd_skills_embeddings[i]}")
                             skills_similarity_score = 0.0
                     except Exception as e:
-                        logger.error(
-                            f"Skills similarity calculation failed for record {i}: {e}. Defaulting skills_similarity_score to 0.0.")
-                        skills_similarity_score = 0.0  # Ensure it's a float even on error
+                        logger.error(f"Skills similarity calculation failed: {str(e)}")
+                        logger.error(f"Full error details: {e}")
+                        skills_similarity_score = 0.0
 
                 try:
                     # Combined similarity (weighted average: 70% job description, 30% skills)
