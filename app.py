@@ -284,16 +284,9 @@ class PWDMatcher:
         # Stage 1: Exact company match if company specified
         if job_data.get('company'):
             company_name = job_data['company'].strip().lower()
-            logger.info(f"Searching for company: '{company_name}'")
-            logger.info(f"Number of records before company filter: {len(pwd_records)}")
-            logger.info(f"Sample of company names in records: {pwd_records['C.1'].head().tolist()}")
-
             pwd_records = pwd_records[pwd_records['C.1'].str.strip().str.lower().str.contains(company_name, na=False)]
 
-            logger.info(f"Number of records after company filter: {len(pwd_records)}")
-
             if pwd_records.empty:
-                logger.info(f"No exact matches found for company: {job_data['company']}")
                 return []
 
         # Stage 2: Calculate similarity on remaining records
