@@ -319,13 +319,13 @@ class PWDMatcher:
                 return []
 
             # Calculate embeddings
-            job_embedding = self.model.encode([job_text])
-            pwd_embeddings = self.model.encode(pwd_texts)
+            job_embedding = self.model.encode([job_text], show_progress_bar=False)
+            pwd_embeddings = self.model.encode(pwd_texts, show_progress_bar=False)
             
             # Only encode job skills if there's actual content
             job_skills_embedding = None
             if job_skills_text and job_skills_text.strip():
-                job_skills_embedding = self.model.encode([job_skills_text])
+                job_skills_embedding = self.model.encode([job_skills_text], show_progress_bar=False)
             
             # Create embeddings only for non-empty texts
             pwd_skills_embeddings = []
@@ -334,7 +334,7 @@ class PWDMatcher:
             for text in pwd_skills_texts:
                 if text and isinstance(text, str) and text.strip():
                     # Encode valid text
-                    embedding = self.model.encode([text])[0]
+                    embedding = self.model.encode([text], show_progress_bar=False)[0]
                     valid_skills_count += 1
                 else:
                     # Create zero vector for empty/invalid text
@@ -944,7 +944,7 @@ def debug_model():
             # Test model encoding
             try:
                 test_text = ["Test sentence for model verification"]
-                embeddings = model.encode(test_text)
+                embeddings = model.encode(test_text, show_progress_bar=False)
                 model_info.update({
                     'encoding_test': 'success',
                     'embedding_shape': embeddings.shape,
