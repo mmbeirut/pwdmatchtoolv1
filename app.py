@@ -327,30 +327,37 @@ class PWDMatcher:
 
             # Calculate embeddings
             job_embedding = self.model.encode([job_text])
-            job_skills_embedding = self.model.encode([job_skills_text]) if job_skills_text else None
             pwd_embeddings = self.model.encode(pwd_texts)
-            logger.info(f"pwd_skills_texts before encoding: {pwd_skills_texts}")
-            for i, text in enumerate(pwd_skills_texts):
-                logger.info(f"  pwd_skills_texts[{i}] type: {type(text)}, value: '{text}'")
+            
+            # Only encode job skills if there's actual content
+            job_skills_embedding = None
+            if job_skills_text and job_skills_text.strip():
+                job_skills_embedding = self.model.encode([job_skills_text])
+                logger.info(f"Job skills text encoded: '{job_skills_text}'")
+            
             # Create embeddings only for non-empty texts
             pwd_skills_embeddings = []
+            valid_skills_count = 0
+            
             for text in pwd_skills_texts:
                 if text and isinstance(text, str) and text.strip():
                     # Encode valid text
                     embedding = self.model.encode([text])[0]
+                    valid_skills_count += 1
+                    logger.info(f"PWD skills text encoded: '{text}'")
                 else:
                     # Create zero vector for empty/invalid text
-                    if not pwd_skills_embeddings:
-                        # Get dimensions from a sample encoding
-                        sample_encoding = self.model.encode(["sample text"])
-                        zero_vector = np.zeros(sample_encoding.shape[1])
-                    else:
+                    if valid_skills_count > 0:
+                        # Use dimensions from a previously encoded skills vector
                         zero_vector = np.zeros_like(pwd_skills_embeddings[0])
+                    else:
+                        # Get dimensions from job embedding
+                        zero_vector = np.zeros(job_embedding.shape[1])
                     embedding = zero_vector
                 pwd_skills_embeddings.append(embedding)
-            pwd_skills_embeddings = np.array(pwd_skills_embeddings)
             
-            logger.info(f"pwd_skills_embeddings after encoding: {pwd_skills_embeddings}")
+            pwd_skills_embeddings = np.array(pwd_skills_embeddings)
+            logger.info(f"Encoded {valid_skills_count} valid PWD skills texts out of {len(pwd_skills_texts)}")
 
             # Calculate cosine similarities
             job_similarities = cosine_similarity(job_embedding, pwd_embeddings)[0]
@@ -362,19 +369,21 @@ class PWDMatcher:
 
                 # Calculate skills similarity
                 skills_similarity_score = 0.0
-                
-                # Only attempt skills similarity if we have valid embeddings
-                if (job_skills_embedding is not None and 
-                    isinstance(pwd_skills_embeddings[i], np.ndarray) and 
-                    pwd_skills_embeddings[i].size > 0 and 
-                    not np.all(pwd_skills_embeddings[i] == 0)):  # Skip zero vectors
+            
+                # Only attempt skills similarity if we have valid job skills text and pwd skills text
+                if (job_skills_text and job_skills_text.strip() and 
+                    pwd_skills_texts[i] and isinstance(pwd_skills_texts[i], str) and pwd_skills_texts[i].strip()):
                     try:
+                        # Both job and PWD have skills text, calculate similarity
                         similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
                         if isinstance(similarities, np.ndarray) and similarities.size > 0:
                             skills_similarity_score = float(similarities[0])
+                            logger.info(f"Skills similarity score calculated: {skills_similarity_score}")
                     except Exception as e:
                         logger.error(f"Skills similarity calculation failed: {str(e)}")
                         skills_similarity_score = 0.0
+                else:
+                    logger.info(f"Skipping skills similarity - Job skills: '{job_skills_text}', PWD skills: '{pwd_skills_texts[i]}'")
 
                 # Calculate combined similarity
                 try:
@@ -557,8 +566,19 @@ class PWDMatcher:
     
     def _create_job_skills_text(self, job_data):
         """Create searchable text from job skills data"""
-        if job_data.get('skills'):
-            return f"Skills: {job_data['skills']}"
+        skills_parts = []
+        
+        # Get special skills and alternate special skills
+        if job_data.get('special_skills'):
+            skills_parts.append(job_data['special_skills'])
+        if job_data.get('alternate_special_skills'):
+            skills_parts.append(job_data['alternate_special_skills'])
+        
+        # Only join non-empty strings
+        skills_parts = [part for part in skills_parts if part and part.strip()]
+        
+        if skills_parts:
+            return f"Skills: {' '.join(skills_parts)}"
         return ""
     
     def _create_pwd_text(self, pwd):
@@ -751,6 +771,10 @@ def search_pwds():
             'company': request.form.get('company', ''),
             'salary_range': request.form.get('salary_range', '')
         }
+        
+        # Log skills data for debugging
+        if job_data['special_skills'] or job_data['alternate_special_skills']:
+            logger.info(f"Skills data provided - Special Skills: '{job_data['special_skills']}', Alternate Skills: '{job_data['alternate_special_skills']}'")
         
         # Log the search parameters for debugging
         logger.info(f"Search request - Job Title: '{job_data['job_title']}', Company: '{job_data['company']}'")
