@@ -459,8 +459,9 @@ class PWDMatcher:
                     'job_title': pwd.get('F.a.1', ''),
                     'job_location': job_location,
                     'job_description': job_desc.strip(),  # Use strip to clean up leading/trailing spaces
-                    'education_required': self._get_education_level(pwd),
-                    'experience_requirement': pwd.get('F.b.4.a', ''),
+                    'required_education': self._get_education_level(pwd, 'required'),
+                    'alternate_education': self._get_education_level(pwd, 'alternate'),
+                    'required_experience': pwd.get('F.b.4.a', ''),
                     'alternate_experience': pwd.get('F.c.4.a', ''),
                     'occupation_requirement': occupation_req.strip(),  # Use strip to clean up
                     'special_skills': pwd.get('Addendum_F.b.5.a(iv)', ''),
@@ -533,8 +534,9 @@ class PWDMatcher:
                 'job_title': pwd.get('F.a.1', ''),
                 'job_location': job_location,
                 'job_description': pwd.get('F.a.2', ''),
-                'education_required': self._get_education_level(pwd),
-                'experience_required': pwd.get('F.b.4.a', ''),
+                'required_education': self._get_education_level(pwd, 'required'),
+                'alternate_education': self._get_education_level(pwd, 'alternate'),
+                'required_experience': pwd.get('F.b.4.a', ''),
                 'similarity_score': combined_similarity,
                 'job_similarity': job_similarity_score,
                 'skills_similarity': skills_similarity_score,
@@ -555,10 +557,12 @@ class PWDMatcher:
             text_parts.append(f"Job Title: {job_data['job_title']}")
         if job_data.get('job_description'):
             text_parts.append(f"Description: {job_data['job_description']}")
-        if job_data.get('education_level'):
-            text_parts.append(f"Education: {job_data['education_level']}")
-        if job_data.get('experience_required'):
-            text_parts.append(f"Experience: {job_data['experience_required']}")
+        if job_data.get('required_education'):
+            text_parts.append(f"Required Education: {job_data['required_education']}")
+        if job_data.get('alternate_education'):
+            text_parts.append(f"Alternate Education: {job_data['alternate_education']}")
+        if job_data.get('required_experience'):
+            text_parts.append(f"Required Experience: {job_data['required_experience']}")
         if job_data.get('location'):
             text_parts.append(f"Location: {job_data['location']}")
         
@@ -598,12 +602,16 @@ class PWDMatcher:
         if job_desc_parts:
             text_parts.append(f"Description: {' '.join(job_desc_parts)}")
         
-        education = self._get_education_level(pwd)
-        if education:
-            text_parts.append(f"Education: {education}")
+        required_education = self._get_education_level(pwd, 'required')
+        if required_education:
+            text_parts.append(f"Required Education: {required_education}")
+            
+        alternate_education = self._get_education_level(pwd, 'alternate')
+        if alternate_education:
+            text_parts.append(f"Alternate Education: {alternate_education}")
         
         if pwd.get('F.b.4.a'):
-            text_parts.append(f"Experience: {pwd['F.b.4.a']}")
+            text_parts.append(f"Required Experience: {pwd['F.b.4.a']}")
         
         # Use F.e.3 and F.e.4 for location instead of F.e.1
         location_parts = []
@@ -638,16 +646,33 @@ class PWDMatcher:
             return f"Skills: {' '.join(skills_parts)}"
         return ""
     
-    def _get_education_level(self, pwd):
-        """Extract education level from PWD record"""
-        education_fields = {
-            'F.b.1.Doctorate': 'Doctorate',
-            'F.b.1.Masters': 'Masters',
-            'F.b.1.Bachelors': 'Bachelors',
-            'F.b.1.Associates': 'Associates',
-            'F.b.1.HighSchoolGED': 'High School/GED',
-            'F.b.1.None': 'None'
-        }
+    def _get_education_level(self, pwd, education_type='required'):
+        """Extract education level from PWD record
+        
+        Args:
+            pwd: The PWD record
+            education_type: 'required' for F.b.1.* fields or 'alternate' for F.c.2.* fields
+        """
+        if education_type == 'required':
+            education_fields = {
+                'F.b.1.Doctorate': 'Doctorate',
+                'F.b.1.Masters': 'Masters',
+                'F.b.1.Bachelors': 'Bachelors',
+                'F.b.1.Associates': 'Associates',
+                'F.b.1.HighSchoolGED': 'High School/GED',
+                'F.b.1.None': 'None',
+                'F.b.1.OtherDegree': 'Other Degree'
+            }
+        else:  # alternate
+            education_fields = {
+                'F.c.2.Doctorate': 'Doctorate',
+                'F.c.2.Masters': 'Masters',
+                'F.c.2.Bachelors': 'Bachelors',
+                'F.c.2.Associates': 'Associates',
+                'F.c.2.HighSchoolGED': 'High School/GED',
+                'F.c.2.None': 'None',
+                'F.c.2.OtherDegree': 'Other Degree'
+            }
         
         for field, level in education_fields.items():
             if pwd.get(field) == 'Yes':
@@ -761,8 +786,9 @@ def search_pwds():
         job_data = {
             'job_title': request.form.get('job_title', ''),
             'job_description': request.form.get('job_description', ''),
-            'education_level': request.form.get('education_level', ''),
-            'experience_requirement': request.form.get('experience_requirement', ''),
+            'required_education': request.form.get('required_education', ''),
+            'alternate_education': request.form.get('alternate_education', ''),
+            'required_experience': request.form.get('required_experience', ''),
             'alternate_experience': request.form.get('alternate_experience', ''),
             'occupation_requirement': request.form.get('occupation_requirement', ''),
             'special_skills': request.form.get('special_skills', ''),
