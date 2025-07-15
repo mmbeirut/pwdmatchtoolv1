@@ -673,7 +673,7 @@ class PWDMatcher:
 
     def _get_education_level(self, pwd, education_type='required'):
         """Extract education level from PWD record
-
+        
         Args:
             pwd: The PWD record
             education_type: 'required' for F.b.1.* fields or 'alternate' for F.c.2.* fields
@@ -698,10 +698,19 @@ class PWDMatcher:
                 'F.c.2.None': 'None',
                 'F.c.2.OtherDegree': 'Other Degree'
             }
-
+        
+        # Add debug logging
+        logger.info(f"Education type: {education_type}")
+        for field, level in education_fields.items():
+            if pwd.get(field) is not None:
+                logger.info(f"Field {field}: {pwd.get(field)}")
+        
         for field, level in education_fields.items():
             if pwd.get(field) == 'Yes':
+                logger.info(f"Found education level for {education_type}: {level}")
                 return level
+        
+        logger.info(f"No education level found for {education_type}")
         return ''
 
     def _get_wage_info(self, pwd):
