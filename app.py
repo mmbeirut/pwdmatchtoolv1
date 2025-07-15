@@ -633,34 +633,39 @@ class PWDMatcher:
             if pwd.get(field) == 'Yes':
                 return level
         return ''
-    
+
     def _get_wage_info(self, pwd):
         """Extract wage information from PWD record"""
         wage_info = {}
-        
+
         # Get G.4 wage amount and period
         g4_amount = None
         g4_period = None
         for period in ['Hour', 'Week', 'BiWeekly', 'Month', 'Year']:
             field = f'G.4.a.{period}'
-            if pwd.get(field):
-                g4_amount = float(pwd[field])
+            val = pwd.get(field)
+            if val is None:
+                continue  # skip nulls
+            try:
+                # Some strings may contain commas, so remove them
+                g4_amount_candidate = float(str(val).replace(',', '').strip())
+                g4_amount = g4_amount_candidate
                 g4_period = period
                 break
-        
+            except (ValueError, TypeError):
+                continue  # skip non-numeric values (like 'False', etc.)
+
         # Get G.5 wage amount if available
         g5_amount = None
         if pwd.get('G.5'):
-            # Replace 'N/A', 'na', etc. with '0'
             g5_value = pwd['G.5']
-            if isinstance(g5_value, str) and g5_value.lower() in ['n/a', 'na', '']:
+            if g5_value is None or (isinstance(g5_value, str) and g5_value.lower() in ['n/a', 'na', '', 'false']):
                 g5_value = '0'
             try:
-                g5_amount = float(g5_value)
+                g5_amount = float(str(g5_value).replace(',', '').strip())
             except (ValueError, TypeError):
-                logger.warning(f"Could not convert G.5 wage to float: {g5_value}")
                 g5_amount = 0.0
-        
+
         # Use the higher of G.4 and G.5
         if g4_amount is not None and g5_amount is not None:
             wage_info['amount'] = max(g4_amount, g5_amount)
@@ -671,7 +676,7 @@ class PWDMatcher:
         elif g5_amount is not None:
             wage_info['amount'] = g5_amount
             wage_info['period'] = 'Year'  # G.5 is typically annual
-        
+
         # Get wage source
         wage_sources = {
             'G.4.c.OES_All_Industries': 'OES All Industries',
@@ -680,12 +685,12 @@ class PWDMatcher:
             'G.4.c.DBA': 'Davis-Bacon Act',
             'G.4.c.SCA': 'Service Contract Act'
         }
-        
+
         for field, source in wage_sources.items():
             if pwd.get(field) == 'Yes':
                 wage_info['source'] = source
                 break
-        
+
         return wage_info
     
     def _determine_match_strength(self, similarity_score):
