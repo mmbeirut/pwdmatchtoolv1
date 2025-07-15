@@ -620,12 +620,12 @@ class PWDMatcher:
         
         # Safely handle Addendum4
         addendum4 = pwd.get('Addendum4')
-        if addendum4 is not None and addendum4 != False:
+        if addendum4 is not None and addendum4 != False and str(addendum4).strip():
             skills_parts.append(str(addendum4).strip())
             
         # Safely handle Addendum6
         addendum6 = pwd.get('Addendum6')
-        if addendum6 is not None and addendum6 != False:
+        if addendum6 is not None and addendum6 != False and str(addendum6).strip():
             skills_parts.append(str(addendum6).strip())
         
         # Only join non-empty strings
