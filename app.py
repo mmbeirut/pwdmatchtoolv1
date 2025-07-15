@@ -333,7 +333,6 @@ class PWDMatcher:
             job_skills_embedding = None
             if job_skills_text and job_skills_text.strip():
                 job_skills_embedding = self.model.encode([job_skills_text])
-                logger.info(f"Job skills text encoded: '{job_skills_text}'")
             
             # Create embeddings only for non-empty texts
             pwd_skills_embeddings = []
@@ -344,7 +343,6 @@ class PWDMatcher:
                     # Encode valid text
                     embedding = self.model.encode([text])[0]
                     valid_skills_count += 1
-                    logger.info(f"PWD skills text encoded: '{text}'")
                 else:
                     # Create zero vector for empty/invalid text
                     if valid_skills_count > 0:
@@ -357,7 +355,6 @@ class PWDMatcher:
                 pwd_skills_embeddings.append(embedding)
             
             pwd_skills_embeddings = np.array(pwd_skills_embeddings)
-            logger.info(f"Encoded {valid_skills_count} valid PWD skills texts out of {len(pwd_skills_texts)}")
 
             # Calculate cosine similarities
             job_similarities = cosine_similarity(job_embedding, pwd_embeddings)[0]
@@ -378,12 +375,11 @@ class PWDMatcher:
                         similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
                         if isinstance(similarities, np.ndarray) and similarities.size > 0:
                             skills_similarity_score = float(similarities[0])
-                            logger.info(f"Skills similarity score calculated: {skills_similarity_score}")
                     except Exception as e:
                         logger.error(f"Skills similarity calculation failed: {str(e)}")
                         skills_similarity_score = 0.0
                 else:
-                    logger.info(f"Skipping skills similarity - Job skills: '{job_skills_text}', PWD skills: '{pwd_skills_texts[i]}'")
+                    skills_similarity_score = 0.0
 
                 # Calculate combined similarity
                 try:
