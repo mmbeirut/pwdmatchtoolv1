@@ -715,7 +715,8 @@ class PWDMatcher:
             logger.info("No education fields found in PWD record")
         
         for field, level in education_fields.items():
-            if pwd.get(field) == 'Yes':
+            field_value = pwd.get(field)
+            if field_value == 'Yes' or field_value is True:
                 logger.info(f"Found education level: {level} from field {field}")
                 return level
         
