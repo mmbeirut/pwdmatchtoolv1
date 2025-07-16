@@ -705,22 +705,11 @@ class PWDMatcher:
                 'F.c.2.OtherDegree': 'Other Degree'
             }
         
-        # Debug: Log all available columns that start with F.b.1 or F.c.2
-        available_edu_fields = [col for col in pwd.index if col.startswith('F.b.1') or col.startswith('F.c.2')]
-        if available_edu_fields:
-            logger.info(f"Available education fields in PWD: {available_edu_fields}")
-            for field in available_edu_fields:
-                logger.info(f"  {field}: {pwd.get(field)}")
-        else:
-            logger.info("No education fields found in PWD record")
-        
         for field, level in education_fields.items():
             field_value = pwd.get(field)
             if field_value == 'Yes' or field_value is True:
-                logger.info(f"Found education level: {level} from field {field}")
                 return level
         
-        logger.info(f"No education level found for {education_type}")
         return ''
 
     def _get_wage_info(self, pwd):
@@ -823,12 +812,11 @@ class PWDMatcher:
         pwd_required_edu = self._get_education_level(pwd, 'required')
         pwd_alternate_edu = self._get_education_level(pwd, 'alternate')
         
-        # Debug logging
-        logger.info(f"Education similarity calculation:")
-        logger.info(f"  Job required education: '{job_required_edu}'")
-        logger.info(f"  Job alternate education: '{job_alternate_edu}'")
-        logger.info(f"  PWD required education: '{pwd_required_edu}'")
-        logger.info(f"  PWD alternate education: '{pwd_alternate_edu}'")
+        # Debug logging for first PWD record only
+        if pwd.get('PWD Case Number') and str(pwd.get('PWD Case Number')).endswith('1'):
+            logger.info(f"Education debug for PWD {pwd.get('PWD Case Number')}:")
+            logger.info(f"  Job required: '{job_required_edu}' | PWD required: '{pwd_required_edu}'")
+            logger.info(f"  Job alternate: '{job_alternate_edu}' | PWD alternate: '{pwd_alternate_edu}'")
         
         scores = []
         
@@ -837,25 +825,19 @@ class PWDMatcher:
             req_score = get_education_score(job_required_edu, pwd_required_edu)
             if req_score is not None:
                 scores.append(req_score)
-                logger.info(f"  Required-to-required score: {req_score}")
         
         # Alternate to Alternate comparison (only if both job and PWD have alternate)
         if job_alternate_edu and pwd_alternate_edu:
             alt_score = get_education_score(job_alternate_edu, pwd_alternate_edu)
             if alt_score is not None:
                 scores.append(alt_score)
-                logger.info(f"  Alternate-to-alternate score: {alt_score}")
         
         if not scores:
-            logger.info(f"  No education scores calculated - returning None")
             return None
-        
-        final_score = sum(scores) / len(scores)
-        logger.info(f"  Final education score: {final_score}")
         
         # If we have both required and alternate scores, average them
         # Otherwise use the single available score
-        return final_score
+        return sum(scores) / len(scores)
     
     def _calculate_experience_similarity(self, job_data, pwd, row_idx):
         """Calculate experience similarity using semantic similarity"""
