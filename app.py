@@ -707,7 +707,7 @@ class PWDMatcher:
         
         for field, level in education_fields.items():
             field_value = pwd.get(field)
-            if field_value == 'Yes' or field_value is True:
+            if field_value == 'Yes' or field_value is True or field_value == 'True':
                 return level
         
         return ''
