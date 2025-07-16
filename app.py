@@ -907,9 +907,9 @@ class PWDMatcher:
         job_required_skills = job_data.get('special_skills', '').strip()
         job_alternate_skills = job_data.get('alternate_special_skills', '').strip()
         
-        # Get PWD skills from Addendum4 and Addendum6
-        pwd_required_skills = safe_strip(pwd.get('Addendum_F.b.5.a(iv)', ''), 'Addendum_F.b.5.a(iv)', row_idx)
-        pwd_alternate_skills = safe_strip(pwd.get('Addendum_F.c.5.a(iv)', ''), 'Addendum_F.c.5.a(iv)', row_idx)
+        # Get PWD skills from Addendum4 and Addendum6 (matching _create_pwd_skills_text)
+        pwd_required_skills = safe_strip(pwd.get('Addendum4', ''), 'Addendum4', row_idx)
+        pwd_alternate_skills = safe_strip(pwd.get('Addendum6', ''), 'Addendum6', row_idx)
         
         scores = []
         
@@ -1055,8 +1055,8 @@ class PWDMatcher:
         """Calculate skills similarity using basic text matching"""
         job_required_skills = job_data.get('special_skills', '').strip().lower()
         job_alternate_skills = job_data.get('alternate_special_skills', '').strip().lower()
-        pwd_required_skills = safe_strip(pwd.get('Addendum_F.b.5.a(iv)', ''), 'Addendum_F.b.5.a(iv)', row_idx).lower()
-        pwd_alternate_skills = safe_strip(pwd.get('Addendum_F.c.5.a(iv)', ''), 'Addendum_F.c.5.a(iv)', row_idx).lower()
+        pwd_required_skills = safe_strip(pwd.get('Addendum4', ''), 'Addendum4', row_idx).lower()
+        pwd_alternate_skills = safe_strip(pwd.get('Addendum6', ''), 'Addendum6', row_idx).lower()
         
         def jaccard_similarity(text1, text2):
             if not text1 or not text2:
