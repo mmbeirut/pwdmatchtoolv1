@@ -817,6 +817,12 @@ class PWDMatcher:
             logger.info(f"Education debug for PWD {pwd.get('PWD Case Number')}:")
             logger.info(f"  Job required: '{job_required_edu}' | PWD required: '{pwd_required_edu}'")
             logger.info(f"  Job alternate: '{job_alternate_edu}' | PWD alternate: '{pwd_alternate_edu}'")
+            
+            # Debug the _get_education_level function
+            logger.info(f"  Debugging PWD education fields:")
+            for field in ['F.b.1.Bachelors', 'F.b.1.Masters', 'F.b.1.Doctorate', 'F.b.1.Associates']:
+                value = pwd.get(field)
+                logger.info(f"    {field}: {value} (type: {type(value)})")
         
         scores = []
         
