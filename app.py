@@ -705,10 +705,21 @@ class PWDMatcher:
                 'F.c.2.OtherDegree': 'Other Degree'
             }
         
+        # Debug: Log all available columns that start with F.b.1 or F.c.2
+        available_edu_fields = [col for col in pwd.index if col.startswith('F.b.1') or col.startswith('F.c.2')]
+        if available_edu_fields:
+            logger.info(f"Available education fields in PWD: {available_edu_fields}")
+            for field in available_edu_fields:
+                logger.info(f"  {field}: {pwd.get(field)}")
+        else:
+            logger.info("No education fields found in PWD record")
+        
         for field, level in education_fields.items():
             if pwd.get(field) == 'Yes':
+                logger.info(f"Found education level: {level} from field {field}")
                 return level
         
+        logger.info(f"No education level found for {education_type}")
         return ''
 
     def _get_wage_info(self, pwd):
