@@ -337,92 +337,60 @@ class PWDMatcher:
             return []
 
     def _calculate_semantic_similarity(self, job_data, pwd_records):
-        """Calculate similarity using sentence transformers"""
-        # Create job description text
-        job_text = self._create_job_text(job_data)
-        job_skills_text = self._create_job_skills_text(job_data)
-
-        # Create PWD texts
-        pwd_texts = []
-        pwd_skills_texts = []
-        for idx, (_, pwd) in enumerate(pwd_records.iterrows()):
-            pwd_text = self._create_pwd_text(pwd, idx)
-            pwd_texts.append(pwd_text)
-            pwd_skills_text = self._create_pwd_skills_text(pwd, idx)
-            pwd_skills_texts.append(pwd_skills_text)
-
-        if not pwd_texts:
-            return []
-
-        # Calculate embeddings
-        job_embedding = self.model.encode([job_text], show_progress_bar=False)
-        pwd_embeddings = self.model.encode(pwd_texts, show_progress_bar=False)
-
-        # Only encode job skills if there's actual content
-        job_skills_embedding = None
-        if job_skills_text and job_skills_text.strip():
-            job_skills_embedding = self.model.encode([job_skills_text], show_progress_bar=False)
-
-        # Create embeddings only for non-empty texts
-        pwd_skills_embeddings = []
-        valid_skills_count = 0
-
-        for i, text in enumerate(pwd_skills_texts):
-            if text and isinstance(text, str) and text.strip():
-                # Encode valid text
-                embedding = self.model.encode([text], show_progress_bar=False)[0]
-                valid_skills_count += 1
-            else:
-                # Create zero vector for empty/invalid text
-                if valid_skills_count > 0:
-                    # Use dimensions from a previously encoded skills vector
-                    zero_vector = np.zeros_like(pwd_skills_embeddings[0])
-                else:
-                    # Get dimensions from job embedding
-                    zero_vector = np.zeros(job_embedding.shape[1])
-                embedding = zero_vector
-            pwd_skills_embeddings.append(embedding)
-
-        pwd_skills_embeddings = np.array(pwd_skills_embeddings)
-
-        # Calculate cosine similarities
-        job_similarities = cosine_similarity(job_embedding, pwd_embeddings)[0]
-
-        # Create results with similarity scores
+        """Calculate similarity using sentence transformers with multi-factor scoring"""
         results = []
+        
         for i, (_, pwd) in enumerate(pwd_records.iterrows()):
-            job_similarity_score = float(job_similarities[i])
-
-            # Calculate skills similarity
-            skills_similarity_score = 0.0
-
-            # Only attempt skills similarity if we have valid job skills text and pwd skills text
-            if (job_skills_text and job_skills_text.strip() and
-                    pwd_skills_texts[i] and isinstance(pwd_skills_texts[i], str) and pwd_skills_texts[i].strip()):
-                try:
-                    # Both job and PWD have skills text, calculate similarity
-                    similarities = cosine_similarity(job_skills_embedding, [pwd_skills_embeddings[i]])[0]
-                    if isinstance(similarities, np.ndarray) and similarities.size > 0:
-                        skills_similarity_score = float(similarities[0])
-                except Exception as e:
-                    logger.error(f"Skills similarity calculation failed: {str(e)}")
-                    skills_similarity_score = 0.0
+            # Calculate individual category similarities
+            education_score = self._calculate_education_similarity(job_data, pwd)
+            experience_score = self._calculate_experience_similarity(job_data, pwd, i)
+            occupation_score = self._calculate_occupation_similarity(job_data, pwd, i)
+            skills_score = self._calculate_skills_similarity(job_data, pwd, i)
+            job_desc_score = self._calculate_job_description_similarity(job_data, pwd, i)
+            location_score = self._calculate_location_similarity(job_data, pwd, i)
+            
+            # Define base weights
+            base_weights = {
+                'education': 0.2,
+                'experience': 0.2,
+                'occupation': 0.2,
+                'skills': 0.2,
+                'job_description': 0.1,
+                'location': 0.1
+            }
+            
+            # Collect available scores and calculate final similarity
+            available_scores = {}
+            if education_score is not None:
+                available_scores['education'] = education_score
+            if experience_score is not None:
+                available_scores['experience'] = experience_score
+            if occupation_score is not None:
+                available_scores['occupation'] = occupation_score
+            if skills_score is not None:
+                available_scores['skills'] = skills_score
+            if job_desc_score is not None:
+                available_scores['job_description'] = job_desc_score
+            if location_score is not None:
+                available_scores['location'] = location_score
+            
+            # Redistribute weights proportionally for missing categories
+            if available_scores:
+                total_available_weight = sum(base_weights[cat] for cat in available_scores.keys())
+                weight_multiplier = 1.0 / total_available_weight if total_available_weight > 0 else 0
+                
+                combined_similarity = sum(
+                    available_scores[cat] * base_weights[cat] * weight_multiplier 
+                    for cat in available_scores.keys()
+                )
             else:
-                skills_similarity_score = 0.0
-
-            # Calculate combined similarity
-            try:
-                # Convert numpy values to Python floats
-                job_sim = float(job_similarity_score)
-                skills_sim = float(skills_similarity_score)
-
-                # Calculate weighted average
-                combined_similarity = (0.7 * job_sim) + (0.3 * skills_sim)
-                match_strength = self._determine_match_strength(combined_similarity)
-            except (ValueError, TypeError) as e:
-                logger.error(f"Combined similarity calculation failed: {e}")
                 combined_similarity = 0.0
-                match_strength = 'Very Weak'
+            
+            match_strength = self._determine_match_strength(combined_similarity)
+            
+            # For backward compatibility, also calculate individual job and skills scores
+            job_similarity_score = job_desc_score if job_desc_score is not None else 0.0
+            skills_similarity_score = skills_score if skills_score is not None else 0.0
 
             # Use F.e.3 and F.e.4 for location display
             location_parts = []
@@ -511,36 +479,60 @@ class PWDMatcher:
         return results
 
     def _calculate_basic_similarity(self, job_data, pwd_records):
-        job_text = self._create_job_text(job_data).lower()
-        job_skills_text = self._create_job_skills_text(job_data).lower()
-        job_words = set(job_text.split())
-        job_skills_words = set(job_skills_text.split()) if job_skills_text else set()
-
+        """Calculate similarity using basic text matching with multi-factor scoring"""
         results = []
+        
         for i, (_, pwd) in enumerate(pwd_records.iterrows()):
-            pwd_text = self._create_pwd_text(pwd, i).lower()
-            pwd_skills_text = self._create_pwd_skills_text(pwd, i).lower()
-            pwd_words = set(pwd_text.split())
-            pwd_skills_words = set(pwd_skills_text.split()) if pwd_skills_text else set()
-
-            # Calculate Jaccard similarity for job description (intersection over union)
-            if job_words and pwd_words:
-                intersection = len(job_words.intersection(pwd_words))
-                union = len(job_words.union(pwd_words))
-                job_similarity_score = intersection / union if union > 0 else 0.0
+            # Calculate individual category similarities using basic text matching
+            education_score = self._calculate_education_similarity(job_data, pwd)
+            experience_score = self._calculate_experience_similarity_basic(job_data, pwd, i)
+            occupation_score = self._calculate_occupation_similarity_basic(job_data, pwd, i)
+            skills_score = self._calculate_skills_similarity_basic(job_data, pwd, i)
+            job_desc_score = self._calculate_job_description_similarity_basic(job_data, pwd, i)
+            location_score = self._calculate_location_similarity_basic(job_data, pwd, i)
+            
+            # Define base weights
+            base_weights = {
+                'education': 0.2,
+                'experience': 0.2,
+                'occupation': 0.2,
+                'skills': 0.2,
+                'job_description': 0.1,
+                'location': 0.1
+            }
+            
+            # Collect available scores and calculate final similarity
+            available_scores = {}
+            if education_score is not None:
+                available_scores['education'] = education_score
+            if experience_score is not None:
+                available_scores['experience'] = experience_score
+            if occupation_score is not None:
+                available_scores['occupation'] = occupation_score
+            if skills_score is not None:
+                available_scores['skills'] = skills_score
+            if job_desc_score is not None:
+                available_scores['job_description'] = job_desc_score
+            if location_score is not None:
+                available_scores['location'] = location_score
+            
+            # Redistribute weights proportionally for missing categories
+            if available_scores:
+                total_available_weight = sum(base_weights[cat] for cat in available_scores.keys())
+                weight_multiplier = 1.0 / total_available_weight if total_available_weight > 0 else 0
+                
+                combined_similarity = sum(
+                    available_scores[cat] * base_weights[cat] * weight_multiplier 
+                    for cat in available_scores.keys()
+                )
             else:
-                job_similarity_score = 0.0
-
-            # Calculate Jaccard similarity for skills
-            skills_similarity_score = 0.0
-            if job_skills_words and pwd_skills_words:
-                skills_intersection = len(job_skills_words.intersection(pwd_skills_words))
-                skills_union = len(job_skills_words.union(pwd_skills_words))
-                skills_similarity_score = skills_intersection / skills_union if skills_union > 0 else 0.0
-
-            # Combined similarity (weighted average: 70% job description, 30% skills)
-            combined_similarity = (0.7 * job_similarity_score) + (0.3 * skills_similarity_score)
+                combined_similarity = 0.0
+            
             match_strength = self._determine_match_strength(combined_similarity)
+            
+            # For backward compatibility, also calculate individual job and skills scores
+            job_similarity_score = job_desc_score if job_desc_score is not None else 0.0
+            skills_similarity_score = skills_score if skills_score is not None else 0.0
 
             # Use F.e.3 and F.e.4 for location display
             location_parts = []
@@ -770,6 +762,360 @@ class PWDMatcher:
                 break
 
         return wage_info
+
+    def _calculate_education_similarity(self, job_data, pwd):
+        """Calculate education similarity with hierarchical comparison"""
+        # Define education hierarchy (higher index = higher education)
+        education_hierarchy = {
+            'None': 0,
+            'High School/GED': 1,
+            'Associates': 2,
+            'Bachelors': 3,
+            'Masters': 4,
+            'Doctorate': 5,
+            'Other Degree': 2.5  # Place between Associates and Bachelors
+        }
+        
+        def get_education_score(job_edu, pwd_edu):
+            if not job_edu or not pwd_edu:
+                return None
+            
+            job_level = education_hierarchy.get(job_edu, 0)
+            pwd_level = education_hierarchy.get(pwd_edu, 0)
+            
+            if job_level == pwd_level:
+                return 1.0  # Exact match
+            elif pwd_level > job_level:
+                return 0.9  # Higher education than required
+            else:
+                # Lower education than required
+                diff = job_level - pwd_level
+                if diff == 1:
+                    return 0.7
+                elif diff == 2:
+                    return 0.4
+                elif diff == 3:
+                    return 0.2
+                else:
+                    return 0.1
+        
+        # Get education data
+        job_required_edu = job_data.get('required_education', '').strip()
+        job_alternate_edu = job_data.get('alternate_education', '').strip()
+        pwd_required_edu = self._get_education_level(pwd, 'required')
+        pwd_alternate_edu = self._get_education_level(pwd, 'alternate')
+        
+        scores = []
+        
+        # Required to Required comparison
+        if job_required_edu and pwd_required_edu:
+            req_score = get_education_score(job_required_edu, pwd_required_edu)
+            if req_score is not None:
+                scores.append(req_score)
+        
+        # Alternate to Alternate comparison (only if both job and PWD have alternate)
+        if job_alternate_edu and pwd_alternate_edu:
+            alt_score = get_education_score(job_alternate_edu, pwd_alternate_edu)
+            if alt_score is not None:
+                scores.append(alt_score)
+        
+        if not scores:
+            return None
+        
+        # If we have both required and alternate scores, average them
+        # Otherwise use the single available score
+        return sum(scores) / len(scores)
+    
+    def _calculate_experience_similarity(self, job_data, pwd, row_idx):
+        """Calculate experience similarity using semantic similarity"""
+        job_required_exp = job_data.get('required_experience', '').strip()
+        job_alternate_exp = job_data.get('alternate_experience', '').strip()
+        pwd_required_exp = safe_strip(pwd.get('F.b.4.a', ''), 'F.b.4.a', row_idx)
+        pwd_alternate_exp = safe_strip(pwd.get('F.c.4.a', ''), 'F.c.4.a', row_idx)
+        
+        scores = []
+        
+        # Required to Required comparison
+        if job_required_exp and pwd_required_exp:
+            try:
+                job_emb = self.model.encode([job_required_exp], show_progress_bar=False)
+                pwd_emb = self.model.encode([pwd_required_exp], show_progress_bar=False)
+                similarity = cosine_similarity(job_emb, pwd_emb)[0][0]
+                scores.append(float(similarity))
+            except Exception as e:
+                logger.error(f"Experience similarity calculation failed: {e}")
+        
+        # Alternate to Alternate comparison
+        if job_alternate_exp and pwd_alternate_exp:
+            try:
+                job_emb = self.model.encode([job_alternate_exp], show_progress_bar=False)
+                pwd_emb = self.model.encode([pwd_alternate_exp], show_progress_bar=False)
+                similarity = cosine_similarity(job_emb, pwd_emb)[0][0]
+                scores.append(float(similarity))
+            except Exception as e:
+                logger.error(f"Alternate experience similarity calculation failed: {e}")
+        
+        if not scores:
+            return None
+        
+        return sum(scores) / len(scores)
+    
+    def _calculate_occupation_similarity(self, job_data, pwd, row_idx):
+        """Calculate occupation requirements similarity using semantic similarity"""
+        job_occupation = job_data.get('occupation_requirement', '').strip()
+        
+        # Combine F.b.4.b with Addendum3 (checking both possible column names)
+        pwd_occupation_parts = []
+        if pwd.get('F.b.4.b'):
+            pwd_occupation_parts.append(safe_strip(pwd['F.b.4.b'], 'F.b.4.b', row_idx))
+        
+        # Check for Addendum3 or Addendum_F.b.4.b
+        addendum_field = pwd.get('Addendum3') or pwd.get('Addendum_F.b.4.b')
+        if addendum_field:
+            pwd_occupation_parts.append(safe_strip(addendum_field, 'Addendum3/Addendum_F.b.4.b', row_idx))
+        
+        pwd_occupation = ' '.join(pwd_occupation_parts) if pwd_occupation_parts else ''
+        
+        if not job_occupation or not pwd_occupation:
+            return None
+        
+        try:
+            job_emb = self.model.encode([job_occupation], show_progress_bar=False)
+            pwd_emb = self.model.encode([pwd_occupation], show_progress_bar=False)
+            similarity = cosine_similarity(job_emb, pwd_emb)[0][0]
+            return float(similarity)
+        except Exception as e:
+            logger.error(f"Occupation similarity calculation failed: {e}")
+            return None
+    
+    def _calculate_skills_similarity(self, job_data, pwd, row_idx):
+        """Calculate skills similarity using semantic similarity"""
+        job_required_skills = job_data.get('special_skills', '').strip()
+        job_alternate_skills = job_data.get('alternate_special_skills', '').strip()
+        
+        # Get PWD skills from Addendum4 and Addendum6
+        pwd_required_skills = safe_strip(pwd.get('Addendum_F.b.5.a(iv)', ''), 'Addendum_F.b.5.a(iv)', row_idx)
+        pwd_alternate_skills = safe_strip(pwd.get('Addendum_F.c.5.a(iv)', ''), 'Addendum_F.c.5.a(iv)', row_idx)
+        
+        scores = []
+        
+        # Required to Required comparison
+        if job_required_skills and pwd_required_skills:
+            try:
+                job_emb = self.model.encode([job_required_skills], show_progress_bar=False)
+                pwd_emb = self.model.encode([pwd_required_skills], show_progress_bar=False)
+                similarity = cosine_similarity(job_emb, pwd_emb)[0][0]
+                scores.append(float(similarity))
+            except Exception as e:
+                logger.error(f"Skills similarity calculation failed: {e}")
+        
+        # Alternate to Alternate comparison
+        if job_alternate_skills and pwd_alternate_skills:
+            try:
+                job_emb = self.model.encode([job_alternate_skills], show_progress_bar=False)
+                pwd_emb = self.model.encode([pwd_alternate_skills], show_progress_bar=False)
+                similarity = cosine_similarity(job_emb, pwd_emb)[0][0]
+                scores.append(float(similarity))
+            except Exception as e:
+                logger.error(f"Alternate skills similarity calculation failed: {e}")
+        
+        if not scores:
+            return None
+        
+        return sum(scores) / len(scores)
+    
+    def _calculate_job_description_similarity(self, job_data, pwd, row_idx):
+        """Calculate job description similarity (title + description)"""
+        job_parts = []
+        if job_data.get('job_title'):
+            job_parts.append(job_data['job_title'].strip())
+        if job_data.get('job_description'):
+            job_parts.append(job_data['job_description'].strip())
+        
+        pwd_parts = []
+        if pwd.get('F.a.1'):
+            pwd_parts.append(safe_strip(pwd['F.a.1'], 'F.a.1', row_idx))
+        
+        # Combine F.a.2 with Addendum_F.a.2
+        if pwd.get('F.a.2'):
+            pwd_parts.append(safe_strip(pwd['F.a.2'], 'F.a.2', row_idx))
+        if pwd.get('Addendum_F.a.2'):
+            pwd_parts.append(safe_strip(pwd['Addendum_F.a.2'], 'Addendum_F.a.2', row_idx))
+        
+        job_text = ' '.join(job_parts) if job_parts else ''
+        pwd_text = ' '.join(pwd_parts) if pwd_parts else ''
+        
+        if not job_text or not pwd_text:
+            return None
+        
+        try:
+            job_emb = self.model.encode([job_text], show_progress_bar=False)
+            pwd_emb = self.model.encode([pwd_text], show_progress_bar=False)
+            similarity = cosine_similarity(job_emb, pwd_emb)[0][0]
+            return float(similarity)
+        except Exception as e:
+            logger.error(f"Job description similarity calculation failed: {e}")
+            return None
+    
+    def _calculate_location_similarity(self, job_data, pwd, row_idx):
+        """Calculate location similarity using fuzzy text matching"""
+        job_location = job_data.get('location', '').strip().lower()
+        
+        # Use F.e.3 and F.e.4 for PWD location
+        pwd_location_parts = []
+        if pwd.get('F.e.3'):
+            pwd_location_parts.append(safe_strip(pwd['F.e.3'], 'F.e.3', row_idx))
+        if pwd.get('F.e.4'):
+            pwd_location_parts.append(safe_strip(pwd['F.e.4'], 'F.e.4', row_idx))
+        
+        pwd_location = ' '.join(pwd_location_parts).strip().lower() if pwd_location_parts else ''
+        
+        if not job_location or not pwd_location:
+            return None
+        
+        try:
+            job_emb = self.model.encode([job_location], show_progress_bar=False)
+            pwd_emb = self.model.encode([pwd_location], show_progress_bar=False)
+            similarity = cosine_similarity(job_emb, pwd_emb)[0][0]
+            return float(similarity)
+        except Exception as e:
+            logger.error(f"Location similarity calculation failed: {e}")
+            return None
+
+    def _calculate_experience_similarity_basic(self, job_data, pwd, row_idx):
+        """Calculate experience similarity using basic text matching"""
+        job_required_exp = job_data.get('required_experience', '').strip().lower()
+        job_alternate_exp = job_data.get('alternate_experience', '').strip().lower()
+        pwd_required_exp = safe_strip(pwd.get('F.b.4.a', ''), 'F.b.4.a', row_idx).lower()
+        pwd_alternate_exp = safe_strip(pwd.get('F.c.4.a', ''), 'F.c.4.a', row_idx).lower()
+        
+        def jaccard_similarity(text1, text2):
+            if not text1 or not text2:
+                return 0.0
+            words1 = set(text1.split())
+            words2 = set(text2.split())
+            intersection = len(words1.intersection(words2))
+            union = len(words1.union(words2))
+            return intersection / union if union > 0 else 0.0
+        
+        scores = []
+        
+        # Required to Required comparison
+        if job_required_exp and pwd_required_exp:
+            scores.append(jaccard_similarity(job_required_exp, pwd_required_exp))
+        
+        # Alternate to Alternate comparison
+        if job_alternate_exp and pwd_alternate_exp:
+            scores.append(jaccard_similarity(job_alternate_exp, pwd_alternate_exp))
+        
+        if not scores:
+            return None
+        
+        return sum(scores) / len(scores)
+    
+    def _calculate_occupation_similarity_basic(self, job_data, pwd, row_idx):
+        """Calculate occupation requirements similarity using basic text matching"""
+        job_occupation = job_data.get('occupation_requirement', '').strip().lower()
+        
+        # Combine F.b.4.b with Addendum3
+        pwd_occupation_parts = []
+        if pwd.get('F.b.4.b'):
+            pwd_occupation_parts.append(safe_strip(pwd['F.b.4.b'], 'F.b.4.b', row_idx))
+        
+        addendum_field = pwd.get('Addendum3') or pwd.get('Addendum_F.b.4.b')
+        if addendum_field:
+            pwd_occupation_parts.append(safe_strip(addendum_field, 'Addendum3/Addendum_F.b.4.b', row_idx))
+        
+        pwd_occupation = ' '.join(pwd_occupation_parts).strip().lower() if pwd_occupation_parts else ''
+        
+        if not job_occupation or not pwd_occupation:
+            return None
+        
+        job_words = set(job_occupation.split())
+        pwd_words = set(pwd_occupation.split())
+        intersection = len(job_words.intersection(pwd_words))
+        union = len(job_words.union(pwd_words))
+        return intersection / union if union > 0 else 0.0
+    
+    def _calculate_skills_similarity_basic(self, job_data, pwd, row_idx):
+        """Calculate skills similarity using basic text matching"""
+        job_required_skills = job_data.get('special_skills', '').strip().lower()
+        job_alternate_skills = job_data.get('alternate_special_skills', '').strip().lower()
+        pwd_required_skills = safe_strip(pwd.get('Addendum_F.b.5.a(iv)', ''), 'Addendum_F.b.5.a(iv)', row_idx).lower()
+        pwd_alternate_skills = safe_strip(pwd.get('Addendum_F.c.5.a(iv)', ''), 'Addendum_F.c.5.a(iv)', row_idx).lower()
+        
+        def jaccard_similarity(text1, text2):
+            if not text1 or not text2:
+                return 0.0
+            words1 = set(text1.split())
+            words2 = set(text2.split())
+            intersection = len(words1.intersection(words2))
+            union = len(words1.union(words2))
+            return intersection / union if union > 0 else 0.0
+        
+        scores = []
+        
+        # Required to Required comparison
+        if job_required_skills and pwd_required_skills:
+            scores.append(jaccard_similarity(job_required_skills, pwd_required_skills))
+        
+        # Alternate to Alternate comparison
+        if job_alternate_skills and pwd_alternate_skills:
+            scores.append(jaccard_similarity(job_alternate_skills, pwd_alternate_skills))
+        
+        if not scores:
+            return None
+        
+        return sum(scores) / len(scores)
+    
+    def _calculate_job_description_similarity_basic(self, job_data, pwd, row_idx):
+        """Calculate job description similarity using basic text matching"""
+        job_parts = []
+        if job_data.get('job_title'):
+            job_parts.append(job_data['job_title'].strip())
+        if job_data.get('job_description'):
+            job_parts.append(job_data['job_description'].strip())
+        
+        pwd_parts = []
+        if pwd.get('F.a.1'):
+            pwd_parts.append(safe_strip(pwd['F.a.1'], 'F.a.1', row_idx))
+        if pwd.get('F.a.2'):
+            pwd_parts.append(safe_strip(pwd['F.a.2'], 'F.a.2', row_idx))
+        if pwd.get('Addendum_F.a.2'):
+            pwd_parts.append(safe_strip(pwd['Addendum_F.a.2'], 'Addendum_F.a.2', row_idx))
+        
+        job_text = ' '.join(job_parts).strip().lower() if job_parts else ''
+        pwd_text = ' '.join(pwd_parts).strip().lower() if pwd_parts else ''
+        
+        if not job_text or not pwd_text:
+            return None
+        
+        job_words = set(job_text.split())
+        pwd_words = set(pwd_text.split())
+        intersection = len(job_words.intersection(pwd_words))
+        union = len(job_words.union(pwd_words))
+        return intersection / union if union > 0 else 0.0
+    
+    def _calculate_location_similarity_basic(self, job_data, pwd, row_idx):
+        """Calculate location similarity using basic text matching"""
+        job_location = job_data.get('location', '').strip().lower()
+        
+        pwd_location_parts = []
+        if pwd.get('F.e.3'):
+            pwd_location_parts.append(safe_strip(pwd['F.e.3'], 'F.e.3', row_idx))
+        if pwd.get('F.e.4'):
+            pwd_location_parts.append(safe_strip(pwd['F.e.4'], 'F.e.4', row_idx))
+        
+        pwd_location = ' '.join(pwd_location_parts).strip().lower() if pwd_location_parts else ''
+        
+        if not job_location or not pwd_location:
+            return None
+        
+        job_words = set(job_location.split())
+        pwd_words = set(pwd_location.split())
+        intersection = len(job_words.intersection(pwd_words))
+        union = len(job_words.union(pwd_words))
+        return intersection / union if union > 0 else 0.0
 
     def _determine_match_strength(self, similarity_score):
         """Determine match strength based on similarity score"""
