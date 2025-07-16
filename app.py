@@ -466,7 +466,14 @@ class PWDMatcher:
                 'wage_issue': wage_issue,
                 'case_status': pwd.get('Case Status', ''),
                 'onet_code': onet_code,
-                'validity_period': validity_period
+                'validity_period': validity_period,
+                # Individual category scores for detailed breakdown
+                'education_score': education_score,
+                'experience_score': experience_score,
+                'occupation_score': occupation_score,
+                'skills_score': skills_score,
+                'job_description_score': job_desc_score,
+                'location_score': location_score
             }
 
             # Add travel requirement as display-only field (not used in similarity calculation)
@@ -556,7 +563,14 @@ class PWDMatcher:
                 'skills_similarity': skills_similarity_score,
                 'match_strength': match_strength,
                 'wage_info': self._get_wage_info(pwd),
-                'case_status': pwd.get('Case Status', '')
+                'case_status': pwd.get('Case Status', ''),
+                # Individual category scores for detailed breakdown
+                'education_score': education_score,
+                'experience_score': experience_score,
+                'occupation_score': occupation_score,
+                'skills_score': skills_score,
+                'job_description_score': job_desc_score,
+                'location_score': location_score
             })
 
         # Sort by similarity score (highest first)

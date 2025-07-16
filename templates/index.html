@@ -348,9 +348,13 @@
                                                 ${Math.round(result.similarity_score * 100)}%
                                             </div>
                                         </div>
-                                        <div class="small text-muted">
-                                            <div>Job Description: ${Math.round(result.job_similarity * 100)}%</div>
-                                            <div>Skills Match: ${Math.round(result.skills_similarity * 100)}%</div>
+                                        <div class="small">
+                                            <div>• Education (20%): ${result.education_score !== null ? Math.round(result.education_score * 100) + '%' : 'N/A'}</div>
+                                            <div>• Experience (20%): ${result.experience_score !== null ? Math.round(result.experience_score * 100) + '%' : 'N/A'}</div>
+                                            <div>• Occupation (20%): ${result.occupation_score !== null ? Math.round(result.occupation_score * 100) + '%' : 'N/A'}</div>
+                                            <div>• Skills (20%): ${result.skills_score !== null ? Math.round(result.skills_score * 100) + '%' : 'N/A'}</div>
+                                            <div>• Job Description (10%): ${result.job_description_score !== null ? Math.round(result.job_description_score * 100) + '%' : 'N/A'}</div>
+                                            <div>• Location (10%): ${result.location_score !== null ? Math.round(result.location_score * 100) + '%' : 'N/A'}</div>
                                         </div>
                                     </div>
                                 </div>
