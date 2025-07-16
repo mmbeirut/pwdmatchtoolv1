@@ -351,12 +351,12 @@ class PWDMatcher:
             
             # Define base weights
             base_weights = {
-                'education': 0.2,
-                'experience': 0.2,
-                'occupation': 0.2,
+                'education': 0.15,
+                'experience': 0.15,
+                'occupation': 0.15,
                 'skills': 0.2,
-                'job_description': 0.1,
-                'location': 0.1
+                'job_description': 0.15,
+                'location': 0.2
             }
             
             # Collect available scores and calculate final similarity
@@ -500,12 +500,12 @@ class PWDMatcher:
             
             # Define base weights
             base_weights = {
-                'education': 0.2,
-                'experience': 0.2,
-                'occupation': 0.2,
+                'education': 0.15,
+                'experience': 0.15,
+                'occupation': 0.15,
                 'skills': 0.2,
-                'job_description': 0.1,
-                'location': 0.1
+                'job_description': 0.15,
+                'location': 0.2
             }
             
             # Collect available scores and calculate final similarity
