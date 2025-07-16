@@ -705,18 +705,10 @@ class PWDMatcher:
                 'F.c.2.OtherDegree': 'Other Degree'
             }
         
-        # Add debug logging
-        logger.info(f"Education type: {education_type}")
-        for field, level in education_fields.items():
-            if pwd.get(field) is not None:
-                logger.info(f"Field {field}: {pwd.get(field)}")
-        
         for field, level in education_fields.items():
             if pwd.get(field) == 'Yes':
-                logger.info(f"Found education level for {education_type}: {level}")
                 return level
         
-        logger.info(f"No education level found for {education_type}")
         return ''
 
     def _get_wage_info(self, pwd):
@@ -819,6 +811,13 @@ class PWDMatcher:
         pwd_required_edu = self._get_education_level(pwd, 'required')
         pwd_alternate_edu = self._get_education_level(pwd, 'alternate')
         
+        # Debug logging
+        logger.info(f"Education similarity calculation:")
+        logger.info(f"  Job required education: '{job_required_edu}'")
+        logger.info(f"  Job alternate education: '{job_alternate_edu}'")
+        logger.info(f"  PWD required education: '{pwd_required_edu}'")
+        logger.info(f"  PWD alternate education: '{pwd_alternate_edu}'")
+        
         scores = []
         
         # Required to Required comparison
@@ -826,19 +825,25 @@ class PWDMatcher:
             req_score = get_education_score(job_required_edu, pwd_required_edu)
             if req_score is not None:
                 scores.append(req_score)
+                logger.info(f"  Required-to-required score: {req_score}")
         
         # Alternate to Alternate comparison (only if both job and PWD have alternate)
         if job_alternate_edu and pwd_alternate_edu:
             alt_score = get_education_score(job_alternate_edu, pwd_alternate_edu)
             if alt_score is not None:
                 scores.append(alt_score)
+                logger.info(f"  Alternate-to-alternate score: {alt_score}")
         
         if not scores:
+            logger.info(f"  No education scores calculated - returning None")
             return None
+        
+        final_score = sum(scores) / len(scores)
+        logger.info(f"  Final education score: {final_score}")
         
         # If we have both required and alternate scores, average them
         # Otherwise use the single available score
-        return sum(scores) / len(scores)
+        return final_score
     
     def _calculate_experience_similarity(self, job_data, pwd, row_idx):
         """Calculate experience similarity using semantic similarity"""
