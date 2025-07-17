@@ -408,7 +408,7 @@ class PWDMatcher:
                     # Extract only digits and period for salary conversion
                     job_salary = float(''.join(c for c in job_data['salary_range'] if c.isdigit() or c == '.'))
                     if 'amount' in wage_info and wage_info['amount'] is not None:
-                        if job_salary > float(wage_info.get('amount', 0)):
+                        if job_salary < float(wage_info.get('amount', 0)):
                             wage_issue = True
                 except (ValueError, TypeError) as e:
                     logger.warning(
