@@ -321,7 +321,7 @@
                                 
                                 <!-- Wage display with potential warning -->
                                 <p class="card-text"><strong>Prevailing Wage Issued:</strong> 
-                                ${result.wage_info ? '$' + result.wage_info.amount + ' per ' + (result.wage_info.period || 'period') + (result.wage_issue ? ' <span class="badge bg-danger">⚠️ Wage Issue</span>' : '') : 'N/A'}</p>
+                                ${result.wage_info && result.wage_info.amount ? '$' + result.wage_info.amount.toLocaleString() + (result.wage_issue ? ' <span class="badge bg-danger">⚠️ Wage Issue</span>' : '') : 'N/A'}</p>
                                 
                                 ${result.onet_code ? `<p class="card-text"><strong>ONET Code:</strong> ${result.onet_code}</p>` : ''}
                                 ${result.validity_period ? `<p class="card-text"><strong>Validity Period:</strong> ${result.validity_period}</p>` : ''}

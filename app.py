@@ -716,43 +716,30 @@ class PWDMatcher:
         """Extract wage information from PWD record"""
         wage_info = {}
 
-        # Get G.4 wage amount and period
+        # Get G.4 wage amount directly from the G.4 column
+        g4_value = pwd.get('G.4')
         g4_amount = None
-        g4_period = None
-        for period in ['Hour', 'Week', 'BiWeekly', 'Month', 'Year']:
-            field = f'G.4.a.{period}'
-            val = pwd.get(field)
-            if val is None:
-                continue  # skip nulls
+        if g4_value is not None:
             try:
-                g4_amount_candidate = float(str(val).replace(',', '').strip())
-                g4_amount = g4_amount_candidate
-                g4_period = period
-                break
+                g4_amount = float(str(g4_value).replace(',', '').strip())
+                if g4_amount > 0:
+                    wage_info['amount'] = g4_amount
             except (ValueError, TypeError):
-                continue  # skip non-numeric values (like 'False', etc.)
+                pass
 
-        # Get G.5 wage amount if available
+        # Get G.5 wage amount if available as fallback
         g5_amount = None
         if pwd.get('G.5'):
             g5_value = pwd['G.5']
-            if g5_value is None or (isinstance(g5_value, str) and g5_value.lower() in ['n/a', 'na', '', 'false']):
-                g5_value = '0'
-            try:
-                g5_amount = float(str(g5_value).replace(',', '').strip())
-            except (ValueError, TypeError):
-                g5_amount = 0.0
-
-        # Use the higher of G.4 and G.5
-        if g4_amount is not None and g5_amount is not None:
-            wage_info['amount'] = max(g4_amount, g5_amount)
-            wage_info['period'] = g4_period
-        elif g4_amount is not None:
-            wage_info['amount'] = g4_amount
-            wage_info['period'] = g4_period
-        elif g5_amount is not None:
-            wage_info['amount'] = g5_amount
-            wage_info['period'] = 'Year'  # G.5 is typically annual
+            if g5_value is not None and str(g5_value).lower() not in ['n/a', 'na', '', 'false']:
+                try:
+                    g5_amount = float(str(g5_value).replace(',', '').strip())
+                    if g5_amount > 0:
+                        # Use G.5 if G.4 is not available or G.5 is higher
+                        if g4_amount is None or g5_amount > g4_amount:
+                            wage_info['amount'] = g5_amount
+                except (ValueError, TypeError):
+                    pass
 
         # Get wage source
         wage_sources = {
