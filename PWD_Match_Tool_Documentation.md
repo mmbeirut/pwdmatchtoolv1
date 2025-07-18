@@ -1,137 +1,114 @@
-# PWD Match Tool v5 - Application Documentation
+# PWD Match Tool v5 - User Guide
 
-## Overview
-The PWD Match Tool v5 is a Flask-based web application designed for immigration law firms to compare job descriptions with existing Prevailing Wage Determinations (PWDs) stored in a SQL Server database. The application uses advanced semantic similarity matching to help identify relevant PWD cases for new job positions.
+## What This Tool Does
+The PWD Match Tool helps immigration lawyers find similar job cases that have already been approved by the Department of Labor. When you have a new job position that needs a wage determination, this tool searches through thousands of previously approved cases to find the ones most similar to your new job.
 
-## Core Functionality
+## How to Use This Tool
 
-### 1. Job Data Input and Comparison
-**Primary Function**: Users can input comprehensive job details and receive ranked matches against existing PWD records.
+### 1. Enter Your Job Information
+You can fill out details about the job position you're working on:
 
-**Input Fields Available**:
-- Job Title: Position name/title
-- Job Description: Detailed description of job duties and responsibilities
-- Required Education: Minimum education level required
-- Alternate Education: Alternative acceptable education level
-- Required Experience: Minimum work experience requirements
-- Alternate Experience: Alternative acceptable experience
-- Occupation Requirements: Specific occupational qualifications needed
-- Special Skills: Required technical or specialized skills
-- Alternate Special Skills: Alternative acceptable skills
-- Location: Job location (city, state)
-- Company: Employer company name
-- Salary Range: Expected compensation range
+**Basic Job Information**:
+- Job Title: What the position is called
+- Job Description: What the person will actually do in this job
+- Company: Which employer is offering the job
+- Location: Where the job is located (city and state)
+- Salary Range: How much the job pays
 
-### 2. Advanced Filtering System
-**Filter Options**:
-- Companies: Filter by specific employer organizations
-- Locations: Filter by geographic locations (city, state combinations)
-- Job Titles: Filter by specific position titles
-- Case Statuses: Filter by PWD application status (e.g., "Determination Issued")
+**Education Requirements**:
+- Required Education: The minimum degree needed for the job
+- Alternate Education: Other acceptable education levels
 
-**Filter Behavior**: Users can apply multiple filters simultaneously to narrow search results before similarity matching begins.
+**Experience Requirements**:
+- Required Experience: The minimum work experience needed
+- Alternate Experience: Other acceptable experience levels
 
-### 3. Multi-Factor Similarity Scoring
-**Semantic Similarity Engine**: The application employs a sophisticated scoring system that evaluates six distinct categories:
+**Additional Requirements**:
+- Occupation Requirements: Special qualifications needed for this type of work
+- Special Skills: Technical skills or certifications required
+- Alternate Special Skills: Other acceptable skills
 
-**Category Weights**:
-- Education Similarity: 15% weight
-- Experience Similarity: 15% weight  
-- Occupation Requirements: 15% weight
-- Skills Matching: 20% weight
-- Job Description: 15% weight
-- Location Matching: 20% weight
+### 2. Filter Your Search (Optional)
+Before searching, you can narrow down which cases to look through:
 
-**Education Matching Logic**:
-- Hierarchical comparison (None < High School/GED < Associates < Bachelors < Masters < Doctorate)
-- Exact matches score 1.0
-- Higher education than required scores 0.9
-- Lower education receives graduated penalties (0.7, 0.4, 0.2, 0.1)
-- Compares both required and alternate education paths
+- **Companies**: Only look at cases from specific employers
+- **Locations**: Only look at jobs in certain cities or states
+- **Job Titles**: Only look at specific types of positions
+- **Case Status**: Only look at cases with certain approval statuses
 
-**Experience Matching**: Semantic comparison of experience descriptions using sentence transformers or Jaccard similarity fallback.
+You can use multiple filters at the same time to get more focused results.
 
-**Skills Analysis**: Compares required and alternate special skills using advanced text similarity algorithms.
+### 3. How the Tool Finds Matches
+The tool compares your job to existing cases using six different factors:
 
-**Location Matching**: Geographic similarity scoring between job location and PWD work locations.
+**What Gets Compared** (and how much each factor matters):
+- Education requirements (15% of the score)
+- Work experience requirements (15% of the score)
+- Job duties and occupation requirements (15% of the score)
+- Required skills (20% of the score)
+- Job title and description (15% of the score)
+- Work location (20% of the score)
 
-### 4. Intelligent Model Loading System
-**Primary Model**: Attempts to load SentenceTransformer 'all-MiniLM-L6-v2' for semantic similarity
-**Loading Sequence**:
-1. Local model directory check
-2. Cache directory search
-3. HuggingFace cache directory scan
-4. BasicTransformer fallback creation
+**Education Matching**: The tool understands that a Master's degree is higher than a Bachelor's degree, which is higher than a high school diploma. It gives the best scores when education levels match exactly, and lower scores when they don't match well.
 
-**Fallback Mechanism**: If sentence transformers fail, creates BasicTransformer using simple text features (word count, character count, unique words, average word length, sentence approximation).
+**Smart Text Comparison**: The tool can understand that "software developer" and "programmer" are similar jobs, even if the exact words are different. It looks at the meaning behind the words, not just exact word matches.
 
-### 5. Database Integration
-**Connection**: Connects to SQL Server database "ImmApps" on server "agd-vtanc-2016"
-**Table**: Queries "DOL_9141_form_20260731_allClients" table
-**Query Optimization**: Dynamic query building with conditional WHERE clauses based on applied filters
+### 4. Understanding Your Results
+After searching, you'll get a list of similar cases ranked from most similar to least similar.
 
-### 6. Results Processing and Display
-**Match Strength Classification**:
-- Strong: ≥80% similarity
-- Moderate: 60-79% similarity  
-- Weak: 40-59% similarity
-- Very Weak: <40% similarity
+**Match Strength Levels**:
+- **Strong Match**: 80% or higher similarity - These cases are very similar to your job
+- **Moderate Match**: 60-79% similarity - These cases are somewhat similar
+- **Weak Match**: 40-59% similarity - These cases have some similarities
+- **Very Weak Match**: Less than 40% similarity - These cases are not very similar
 
-**Result Limiting**: Returns top 50 matches to prevent performance issues
-**Sorting**: Results ranked by combined similarity score (highest first)
+**What You'll See for Each Match**:
+- Case number from the Department of Labor
+- Company name and job title
+- Where the job is located
+- Complete job description
+- Education and experience requirements
+- Special skills needed
+- How similar it is to your job (percentage and category)
+- Wage information and any potential wage issues
+- Whether the case was approved
+- When the approval is valid
 
-### 7. Comprehensive Result Data
-**Each Result Contains**:
-- PWD Case Number
-- Company name
-- Job title and location
-- Complete job description (including addendums)
-- Education requirements (required and alternate)
-- Experience requirements (required and alternate)
-- Occupation requirements (including addendums)
-- Special skills (required and alternate)
-- Individual category similarity scores
-- Combined similarity score
-- Match strength classification
-- Wage information and potential wage issues
-- Case status
-- ONET occupation code
-- Validity period
-- Travel requirements
+### 5. Wage Comparison
+The tool automatically checks if your job's salary is appropriate:
 
-### 8. Wage Analysis
-**Wage Comparison**: Compares user-provided salary range against PWD wage determinations
-**Wage Sources**: Identifies wage source (OES All Industries, OES ACWIA, CBA, DBA, SCA)
-**Issue Detection**: Flags potential wage issues when job salary is below PWD minimum
+- **Wage Sources**: Shows where the approved wage came from (government surveys, union agreements, etc.)
+- **Wage Issues**: Warns you if your job's salary might be too low compared to the approved case
+- **Wage Information**: Shows the approved wage amount for comparison
 
-### 9. API Endpoints
-**Main Routes**:
-- `/` - Main application interface with job input form
-- `/search` (POST) - Processes job data and returns similarity matches
-- `/health` - Application health check and database connectivity test
-- `/debug/data` - Database diagnostic information and record counts
-- `/debug/model` - Model loading status and configuration details
+### 6. What Makes This Tool Helpful
 
-### 10. Error Handling and Logging
-**Comprehensive Logging**: Tracks model loading, database queries, similarity calculations, and errors
-**Graceful Degradation**: Falls back to basic text matching if advanced models fail
-**Error Recovery**: Continues operation even with partial data or model failures
+**Saves Time**: Instead of manually searching through thousands of cases, the tool finds relevant matches in seconds.
 
-### 11. Security and Configuration
-**Environment Variables**: Supports configurable secret keys and database connections
-**SSL Handling**: Comprehensive SSL bypass for model downloading in corporate environments
-**Offline Mode**: Supports offline operation with cached models
+**Finds Hidden Connections**: The tool can find similar cases even when the job titles or descriptions use different words.
 
-### 12. Data Safety Features
-**Safe String Processing**: Handles null values and data type inconsistencies gracefully
-**Input Validation**: Processes various data formats and handles missing fields
-**Memory Management**: Limits result sets and optimizes query performance
+**Comprehensive Comparison**: Looks at multiple aspects of each job, not just the title or one requirement.
 
-## Technical Architecture
-**Framework**: Flask web application
-**Database**: SQL Server with SQLAlchemy ORM
-**ML Libraries**: SentenceTransformers, scikit-learn for similarity calculations
-**Frontend**: HTML templates with dynamic filtering and result display
-**Deployment**: Configurable for development and production environments
+**Detailed Breakdown**: Shows exactly why each case is similar or different from your job.
 
-This application serves as a comprehensive tool for immigration law professionals to efficiently identify relevant PWD precedents for new job positions, significantly reducing manual research time while providing quantitative similarity assessments.
+**Quality Control**: Automatically checks for potential wage issues and provides detailed case information.
+
+### 7. System Features
+
+**Reliability**: The tool keeps working even if some parts have problems, falling back to simpler matching methods when needed.
+
+**Data Safety**: Handles missing information gracefully and processes various data formats.
+
+**Performance**: Limits results to the top 50 matches to keep the tool running quickly.
+
+**Accuracy**: Uses advanced text analysis to understand job similarities beyond simple word matching.
+
+## Who This Tool Helps
+This tool is designed for immigration law professionals who need to:
+- Research prevailing wage determinations for new cases
+- Find supporting evidence for wage levels
+- Identify similar approved cases quickly
+- Reduce time spent on manual case research
+- Ensure compliance with Department of Labor requirements
+
+The tool makes the complex process of finding relevant precedent cases much faster and more thorough than manual searching.
