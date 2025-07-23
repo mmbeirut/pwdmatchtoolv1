@@ -954,11 +954,34 @@ class PWDMatcher:
         if not job_text or not pwd_text:
             return None
         
+        # Add minimum length validation - penalize very short job descriptions
+        if len(job_text.strip()) < 20:
+            logger.warning(f"Job text too short ({len(job_text)} chars): '{job_text}' - applying penalty")
+            return 0.05  # Very low score for insufficient text
+        
+        if len(pwd_text.strip()) < 20:
+            return 0.05  # Very low score for insufficient PWD text
+        
         try:
             job_emb = self.model.encode([job_text], show_progress_bar=False)
             pwd_emb = self.model.encode([pwd_text], show_progress_bar=False)
-            similarity = cosine_similarity(job_emb, pwd_emb)[0][0]
-            return float(similarity)
+            raw_similarity = cosine_similarity(job_emb, pwd_emb)[0][0]
+            
+            # Log similarity for debugging (only for first few comparisons to avoid spam)
+            if row_idx is not None and row_idx < 3:
+                logger.info(f"Job desc similarity debug - Row {row_idx}:")
+                logger.info(f"  Job text: '{job_text[:100]}...'")
+                logger.info(f"  PWD text: '{pwd_text[:100]}...'")
+                logger.info(f"  Raw cosine similarity: {raw_similarity:.4f}")
+            
+            # Apply stricter thresholds - cosine similarity below 0.3 should be much lower
+            if raw_similarity < 0.3:
+                adjusted_similarity = raw_similarity * 0.3  # Reduce low similarities significantly
+                if row_idx is not None and row_idx < 3:
+                    logger.info(f"  Applied low similarity penalty: {raw_similarity:.4f} -> {adjusted_similarity:.4f}")
+                return float(adjusted_similarity)
+            
+            return float(raw_similarity)
         except Exception as e:
             logger.error(f"Job description similarity calculation failed: {e}")
             return None
@@ -1096,11 +1119,25 @@ class PWDMatcher:
         if not job_text or not pwd_text:
             return None
         
+        # Add minimum length validation for basic matching too
+        if len(job_text) < 20:
+            logger.warning(f"Job text too short for basic matching ({len(job_text)} chars): '{job_text}' - applying penalty")
+            return 0.05  # Very low score for insufficient text
+        
+        if len(pwd_text) < 20:
+            return 0.05  # Very low score for insufficient PWD text
+        
         job_words = set(job_text.split())
         pwd_words = set(pwd_text.split())
         intersection = len(job_words.intersection(pwd_words))
         union = len(job_words.union(pwd_words))
-        return intersection / union if union > 0 else 0.0
+        jaccard_similarity = intersection / union if union > 0 else 0.0
+        
+        # Apply similar threshold logic for basic matching
+        if jaccard_similarity < 0.2:
+            jaccard_similarity = jaccard_similarity * 0.3  # Reduce low similarities
+        
+        return jaccard_similarity
     
     def _calculate_location_similarity_basic(self, job_data, pwd, row_idx):
         """Calculate location similarity using basic text matching"""
