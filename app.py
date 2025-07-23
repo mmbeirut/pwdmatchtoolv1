@@ -251,12 +251,7 @@ class DatabaseManager:
             df = pd.read_sql(query, engine)
             logger.info(f"Query executed successfully. Retrieved {len(df)} PWD records")
 
-            # Log some sample data for debugging
-            if len(df) > 0:
-                logger.info(f"Sample companies: {df['C.1'].head().tolist()}")
-                logger.info(f"Sample job titles: {df['F.a.1'].head().tolist()}")
-                logger.info(f"Sample case statuses: {df['Case Status'].head().tolist()}")
-            else:
+            if len(df) == 0:
                 logger.warning("No records returned from query")
 
             return df
