@@ -1,0 +1,63 @@
+We need to make several big changes to the application. I am going to list them here for you to review. Please consider how to incorporate these change into the code and let me know of any questions you have first.
+
+The first change is to the search results form. In the match display bubble we want to remove the existing fields and replace them with these. I've put a label name followed by the actual column in the database table (you don't have to display the column name): 
+
+Company - C.1
+Case Number - PWD Case Number
+Case Status - Case Status
+Job Title - F.a.1
+Work Location - concat F.e.3 and F.e.4 as City, State
+Experience Requirement - F.b.4.a
+Alternate Experience Requirement - F.c.4.a
+Occupation Requirement - F.b.4.b and Addendum_F.b.4.b
+Issued Wage Required - list the higher value of G.4 and G.5. Note that G.5 will sometimes say N/A which you can treat as 0.) If the user inputted salary is higher than the higher value of G.4 or G.5, add a red exclamation mark to the bubble with the words "Wage Issue" in red.
+
+Then, we want to create an expandable view. We discussed this in the chat above. I am putting some of our dialogue here so you can find the code you already suggested. 
+
+
+> /ask is it possible to add a button to the search results that when clicked, would open up a view of all of the database columns associated with the record? I don't thik all of the columns will fit in the initial results box, 
+>  and that's fine, but it would be nice to expand the results box to see more of the database columns.
+
+Yes, this is definitely possible! Here's how we could implement it:
+
+ 1 First, modify the /search route to return all database columns in the results:
+ 2 Add a "View Details" button to the results display in the HTML template:
+ 3 Add a modal dialog to display the details:
+ 4 Add JavaScript to handle showing the details:
+
+
+This would create an expandable view where users can:
+
+
+ 1 See the summary results as before
+ 2 Click a "View Details" button to see all database columns in a modal popup
+ 3 Close the modal to return to the main results
+
+The database columns which should be displayed on the expansion view are as follows. I've put a label name followed by the actual column in the database table (you don't have to display the column name): 
+
+Company - C.1
+Case Number - PWD Case Number
+Case Status - Case Status
+Job Title - F.a.1
+Work Location - concat F.e.3 and F.e.4 as City, State
+Experience Requirement - F.b.4.a
+Alternate Experience Requirement - F.c.4.a
+Occupation Requirement - F.b.4.b and Addendum_F.b.4.b
+Issued Wage Required - list the higher value of G.4 and G.5. (Note that G.5 will sometimes say N/A which you can treat as 0.)
+ONET Code - F.d.1 and F.d.1.a
+Travel Required - F.d.3.yes and F.d.3.no. (Note that if F.d.3.yes = False, then the answer to display is No. If F.d.3.yes = True, then the value to display is Yes.)
+Validity Period - [Validity Period From] to [Validity Period To]
+Job Description - F.a.2 + Addendum_F.a.2
+
+
+The second change is to add new experience months fields to the user input form. Currently there is a field named Experience Required. We need two fields now, one named Experience Requirement (which will be compared to database field F.b.4.a) and a second field named Alternate Experience Requirement (which will be compared to database field F.c.4.a). Note that for both fields, and also in the database fields, this is an integer which represents months. For example, the user might put in 48 which means 48 months. So whatever number is put into the user form, treat it as number of months. 
+
+The third change is to add a new field name Occupation Requirement (which will be compared to database field F.b.4.b and Addendum_F.b.4.b). 
+
+The fourth change is to add new skills fields. One field will be named Special Skills Requirement (and will be compared to database field Addendum_F.b.5.a(iv)). The second field will be named Alternate Special Skills Requirement (and 
+will be compared to database field Addendum_F.c.5.a(iv)). 
+
+
+
+
+

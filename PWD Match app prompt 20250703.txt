@@ -1,0 +1,38 @@
+You are a Python developer tasked with writing a Python application. Build an interactive app for an immigration law firm. Users will type natural language questions about immigration cases (stored in SQL Server), and the app will return results based on SQL queries. Create variables for the server name and database name. We will use trusted connection = yes. Here's what I need:
+
+1. The app should perform the following functionality:
+	Compare information from a job description and an existing Prevailing Wage Determination, and determine whether the comparison makes a strong or weak match. 
+	Query a database of existing PWDs to compare to the information input into an interface by users.
+	Have 8-10 fields that can be entered by the user, and compared to the database. 
+	Determine whether the entered job information matches or comes close to an existing PWD in the database.
+	Allow the user to filter the results by Company, Job Location, Job Title, and Job Skills. 
+	Each of the filters should be multi-select.
+	No need to register users or keep a log of user sessions. 
+	The data will be stored in a SQL Server database. The server name is agd-vtanc-2016 and the database name is ImmApps. The table holding PWD information is named DOL_9141_form_20260731_allClients. I will provide the SQL table schema in a txt file called SQL Schema for PWD Table.
+ NO use of cloud AI models (due to firm policy).
+PyCharm Community Edition only — no React/JS frontend or plugins.
+Backend is in Python, and the SQL Server schema is available locally.
+
+  
+
+2. Use the following technologies or libraries:
+   Flask for the web framework, SQLAlchemy for database interactions, and Bootstrap for styling. Use sentence-transformers for the matching engine. 
+
+3. Adhere to the following guidelines:
+   The code should be clean, modular, and well-documented.
+   Follow Python best practices (PEP 8).
+   Include error handling where necessary.
+
+4. Output the following:
+   A complete Python script or modular files.
+   Comments explaining key parts of the code.
+   Instructions on how to run the application locally.
+
+5. Additional instructions:
+ Use #002856 for large, prominent areas of color and copy.
+Make the styling clean and modern.
+
+Assume the user has basic knowledge of Python but needs clear setup instructions for dependencies.
+
+If you need additional details or clarification, feel free to ask in the generated response.
+
