@@ -27,10 +27,20 @@ except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
     logger.warning("Sentence transformers not available - using basic text matching")
 
-# Database configuration
+'''
+# Database configuration - local 
 SERVER_NAME = "agd-vtanc-2016"
 DATABASE_NAME = "ImmApps"
 TABLE_NAME = "DOL_9141_form_20260731_allClients"
+'''
+
+# Azure SQL settings (use environment variables for security)
+SERVER_NAME = os.getenv("AZURE_SQL_SERVER", "immapps-sql01.database.windows.net")
+DATABASE_NAME = os.getenv("AZURE_SQL_DATABASE", "ImmApps")
+DB_USERNAME = os.getenv("AZURE_SQL_USER", "immappsadmin")
+DB_PASSWORD = os.getenv("AZURE_SQL_PASSWORD", "ImmApps!2025Db$!3")
+TABLE_NAME = "DOL_9141_form_20260731_allClients"
+
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -198,7 +208,12 @@ class DatabaseManager:
     """Handles database connections and queries"""
 
     def __init__(self):
-        self.connection_string = f"mssql+pyodbc://{SERVER_NAME}/{DATABASE_NAME}?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes"
+        # local only -- self.connection_string = f"mssql+pyodbc://{SERVER_NAME}/{DATABASE_NAME}?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes"
+        self.connection_string = (
+            f"mssql+pyodbc://{DB_USERNAME}:{DB_PASSWORD}@{SERVER_NAME}/{DATABASE_NAME}"
+            "?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=no"
+        )
+
         self.engine = None
 
     def get_engine(self):
